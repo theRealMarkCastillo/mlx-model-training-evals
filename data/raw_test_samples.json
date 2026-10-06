@@ -1,0 +1,242 @@
+[
+  {
+    "prompt": "Resize k8s-compute-cluster-east to 10 nodes (c6i.2xlarge). Autoscale enabled.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-compute-cluster-east\",\"node_count\":10,\"auto_scale\":true,\"instance_type\":\"c6i.2xlarge\"}}"
+  },
+  {
+    "prompt": "Restart pod celery-worker-7f89b (ap-southeast-1) due to max socket limit.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"ap-southeast-1\",\"force\":false,\"reason\":\"Connection pool exhaustion\"}}"
+  },
+  {
+    "prompt": "Rollback dep-8780 to previous good state v1.5.2. Gracefully terminate after draining.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-8780\",\"target_tag\":\"v1.5.2\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Roll back deployment dep-1436 to tag v3.7.2. Drain active traffic first.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-1436\",\"target_tag\":\"v3.7.2\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Scale cluster k8s-prod-cluster-east to 10 worker nodes using m6i.large. Keep autoscaling active.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-prod-cluster-east\",\"node_count\":10,\"auto_scale\":true,\"instance_type\":\"m6i.large\"}}"
+  },
+  {
+    "prompt": "Restart pod postgres-primary-0 (eu-central-1) due to apply updated secret.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"postgres-primary-0\",\"region\":\"eu-central-1\",\"force\":false,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Please restart celery-worker-7f89b located in ap-southeast-1. Reason: OOMKilled memory leak. Allow graceful shutdown.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"ap-southeast-1\",\"force\":false,\"reason\":\"OOMKilled memory leak\"}}"
+  },
+  {
+    "prompt": "Please restart ingress-controller-4a11 located in eu-west-1. Reason: Configuration reload. Allow graceful shutdown.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"ingress-controller-4a11\",\"region\":\"eu-west-1\",\"force\":false,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "We need more compute in k8s-compute-cluster-west. Scale to 80 nodes (c6i.2xlarge). Autoscaler should be disabled.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-compute-cluster-west\",\"node_count\":80,\"auto_scale\":false,\"instance_type\":\"c6i.2xlarge\"}}"
+  },
+  {
+    "prompt": "We have an issue in eu-west-1: redis-cluster-cache-3 is experiencing timeout errors. Issue a standard restart.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"redis-cluster-cache-3\",\"region\":\"eu-west-1\",\"force\":false,\"reason\":\"Unresponsive healthcheck timeout\"}}"
+  },
+  {
+    "prompt": "We have an issue in ap-northeast-1: clickhouse-replica-2 is experiencing too many open connections. Issue a standard restart.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"clickhouse-replica-2\",\"region\":\"ap-northeast-1\",\"force\":false,\"reason\":\"Connection pool exhaustion\"}}"
+  },
+  {
+    "prompt": "Rollback dep-5715 to previous good state v1.9.5. Immediate cutover without draining.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-5715\",\"target_tag\":\"v1.9.5\",\"drain_traffic\":false}}"
+  },
+  {
+    "prompt": "Execute rollback on dep-3399 restoring version v2.0.2 (drain_traffic=true).",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-3399\",\"target_tag\":\"v2.0.2\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Adjust capacity for k8s-compute-cluster-west: target 120 nodes of type m6i.xlarge. Turn off autoscaling.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-compute-cluster-west\",\"node_count\":120,\"auto_scale\":false,\"instance_type\":\"m6i.xlarge\"}}"
+  },
+  {
+    "prompt": "Revert dep-5450 back to v1.1.4. Ensure connections are drained.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-5450\",\"target_tag\":\"v1.1.4\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Please deploy gateway-proxy version v2.7.0 to primary prod with 3 replicas.",
+    "completion": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"gateway-proxy\",\"version\":\"v2.7.0\",\"environment\":\"production\",\"replicas\":3,\"notify_channels\":[\"#infra-alerts\"]}}"
+  },
+  {
+    "prompt": "We have an issue in ap-northeast-1: celery-worker-7f89b is experiencing apply updated secret. Issue a standard restart.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"ap-northeast-1\",\"force\":false,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Roll back deployment dep-5676 to tag v3.0.0. Drain active traffic first.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-5676\",\"target_tag\":\"v3.0.0\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Please restart celery-worker-7f89b located in us-west-2. Reason: Configuration reload. Immediate force kill.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"us-west-2\",\"force\":true,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Execute rollback on dep-1613 restoring version v1.4.4 (drain_traffic=true).",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-1613\",\"target_tag\":\"v1.4.4\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Revert dep-8444 back to v3.8.4. Do not wait for drain, hard cutover.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-8444\",\"target_tag\":\"v3.8.4\",\"drain_traffic\":false}}"
+  },
+  {
+    "prompt": "We need more compute in k8s-staging-cluster-beta. Scale to 5 nodes (m6i.xlarge). Autoscaler should be disabled.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-staging-cluster-beta\",\"node_count\":5,\"auto_scale\":false,\"instance_type\":\"m6i.xlarge\"}}"
+  },
+  {
+    "prompt": "Revert dep-4050 back to v1.5.2. Ensure connections are drained.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-4050\",\"target_tag\":\"v1.5.2\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Adjust capacity for k8s-staging-cluster-west: target 5 nodes of type m6i.large. Turn off autoscaling.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-staging-cluster-west\",\"node_count\":5,\"auto_scale\":false,\"instance_type\":\"m6i.large\"}}"
+  },
+  {
+    "prompt": "Restart pod celery-worker-7f89b (eu-west-1) due to high RAM consumption. Force restart requested.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"eu-west-1\",\"force\":true,\"reason\":\"OOMKilled memory leak\"}}"
+  },
+  {
+    "prompt": "Pod celery-worker-7f89b in eu-west-1 is max socket limit. Gracefully reboot it.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"eu-west-1\",\"force\":false,\"reason\":\"Connection pool exhaustion\"}}"
+  },
+  {
+    "prompt": "Rollback dep-6890 to previous good state v3.3.0. Gracefully terminate after draining.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-6890\",\"target_tag\":\"v3.3.0\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Roll back deployment dep-3616 to tag v2.8.5. Skip traffic draining and swap immediately.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-3616\",\"target_tag\":\"v2.8.5\",\"drain_traffic\":false}}"
+  },
+  {
+    "prompt": "Rollback dep-7021 to previous good state v3.3.1. Gracefully terminate after draining.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-7021\",\"target_tag\":\"v3.3.1\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Please restart celery-worker-7f89b located in ap-northeast-1. Reason: Configuration reload. Allow graceful shutdown.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"ap-northeast-1\",\"force\":false,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Pod clickhouse-replica-2 in ap-southeast-1 is flush local config cache. Force restart it now.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"clickhouse-replica-2\",\"region\":\"ap-southeast-1\",\"force\":true,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Please deploy auth-api version v2.4.2 to qa-staging with 1 replicas.",
+    "completion": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v2.4.2\",\"environment\":\"staging\",\"replicas\":1,\"notify_channels\":[\"#deployments\",\"#ops-room\"]}}"
+  },
+  {
+    "prompt": "We need more compute in k8s-prod-cluster-east. Scale to 50 nodes (t4g.xlarge). Ensure autoscaling is on.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-prod-cluster-east\",\"node_count\":50,\"auto_scale\":true,\"instance_type\":\"t4g.xlarge\"}}"
+  },
+  {
+    "prompt": "Roll back deployment dep-1356 to tag v2.4.0. Drain active traffic first.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-1356\",\"target_tag\":\"v2.4.0\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Trigger a deployment of recommendation-v2 (v3.2.8) in prod. Make sure 5 replicas are running.",
+    "completion": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"recommendation-v2\",\"version\":\"v3.2.8\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[]}}"
+  },
+  {
+    "prompt": "Restart pod redis-cluster-cache-3 (ap-northeast-1) due to too many open connections.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"redis-cluster-cache-3\",\"region\":\"ap-northeast-1\",\"force\":false,\"reason\":\"Connection pool exhaustion\"}}"
+  },
+  {
+    "prompt": "Scale cluster k8s-staging-cluster-alpha to 120 worker nodes using c6i.2xlarge. Keep autoscaling active.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-staging-cluster-alpha\",\"node_count\":120,\"auto_scale\":true,\"instance_type\":\"c6i.2xlarge\"}}"
+  },
+  {
+    "prompt": "Pod ingress-controller-4a11 in eu-central-1 is failing liveness probes. Force restart it now.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"ingress-controller-4a11\",\"region\":\"eu-central-1\",\"force\":true,\"reason\":\"Unresponsive healthcheck timeout\"}}"
+  },
+  {
+    "prompt": "Revert dep-8585 back to v3.8.3. Do not wait for drain, hard cutover.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-8585\",\"target_tag\":\"v3.8.3\",\"drain_traffic\":false}}"
+  },
+  {
+    "prompt": "Pod celery-worker-7f89b in eu-west-1 is db pool starved. Force restart it now.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"eu-west-1\",\"force\":true,\"reason\":\"Connection pool exhaustion\"}}"
+  },
+  {
+    "prompt": "Deploy recommendation-v2 v1.7.3 to prod immediately. Set replica count to 8.",
+    "completion": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"recommendation-v2\",\"version\":\"v1.7.3\",\"environment\":\"production\",\"replicas\":8,\"notify_channels\":[]}}"
+  },
+  {
+    "prompt": "Roll out release v1.12.7 for user-mgmt on production (replicas: 1).",
+    "completion": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"user-mgmt\",\"version\":\"v1.12.7\",\"environment\":\"production\",\"replicas\":1,\"notify_channels\":[]}}"
+  },
+  {
+    "prompt": "We have an issue in ap-southeast-1: clickhouse-replica-2 is experiencing db pool starved. Issue a standard restart.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"clickhouse-replica-2\",\"region\":\"ap-southeast-1\",\"force\":false,\"reason\":\"Connection pool exhaustion\"}}"
+  },
+  {
+    "prompt": "We have an issue in ap-southeast-1: clickhouse-replica-2 is experiencing flush local config cache. Issue a forced restart.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"clickhouse-replica-2\",\"region\":\"ap-southeast-1\",\"force\":true,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Trigger a deployment of gateway-proxy (v2.13.8) in staging. Make sure 3 replicas are running. Notify #release-tracker.",
+    "completion": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"gateway-proxy\",\"version\":\"v2.13.8\",\"environment\":\"staging\",\"replicas\":3,\"notify_channels\":[\"#release-tracker\",\"#core-eng\"]}}"
+  },
+  {
+    "prompt": "We need more compute in k8s-prod-cluster-west. Scale to 50 nodes (t4g.xlarge). Ensure autoscaling is on.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-prod-cluster-west\",\"node_count\":50,\"auto_scale\":true,\"instance_type\":\"t4g.xlarge\"}}"
+  },
+  {
+    "prompt": "Restart pod redis-cluster-cache-3 (eu-west-1) due to apply updated secret. Force restart requested.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"redis-cluster-cache-3\",\"region\":\"eu-west-1\",\"force\":true,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Adjust capacity for k8s-compute-cluster-beta: target 50 nodes of type c6i.2xlarge. Enable cluster autoscaler.",
+    "completion": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-compute-cluster-beta\",\"node_count\":50,\"auto_scale\":true,\"instance_type\":\"c6i.2xlarge\"}}"
+  },
+  {
+    "prompt": "Roll back deployment dep-2295 to tag v2.5.0. Drain active traffic first.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-2295\",\"target_tag\":\"v2.5.0\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Roll back deployment dep-7179 to tag v3.9.4. Drain active traffic first.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-7179\",\"target_tag\":\"v3.9.4\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "We have an issue in ap-northeast-1: ingress-controller-4a11 is experiencing apply updated secret. Issue a forced restart.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"ingress-controller-4a11\",\"region\":\"ap-northeast-1\",\"force\":true,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Rollback dep-1251 to previous good state v1.3.5. Gracefully terminate after draining.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-1251\",\"target_tag\":\"v1.3.5\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "We have an issue in ap-southeast-1: clickhouse-replica-2 is experiencing apply updated secret. Issue a forced restart.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"clickhouse-replica-2\",\"region\":\"ap-southeast-1\",\"force\":true,\"reason\":\"Configuration reload\"}}"
+  },
+  {
+    "prompt": "Execute rollback on dep-7236 restoring version v2.8.5 (no traffic draining).",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-7236\",\"target_tag\":\"v2.8.5\",\"drain_traffic\":false}}"
+  },
+  {
+    "prompt": "Rollback dep-6892 to previous good state v3.7.3. Gracefully terminate after draining.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-6892\",\"target_tag\":\"v3.7.3\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Revert dep-4328 back to v2.5.3. Ensure connections are drained.",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-4328\",\"target_tag\":\"v2.5.3\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Please restart postgres-primary-0 located in eu-west-1. Reason: Connection pool exhaustion. Allow graceful shutdown.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"postgres-primary-0\",\"region\":\"eu-west-1\",\"force\":false,\"reason\":\"Connection pool exhaustion\"}}"
+  },
+  {
+    "prompt": "Execute rollback on dep-4768 restoring version v2.9.1 (no traffic draining).",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-4768\",\"target_tag\":\"v2.9.1\",\"drain_traffic\":false}}"
+  },
+  {
+    "prompt": "Execute rollback on dep-9005 restoring version v3.7.3 (drain_traffic=true).",
+    "completion": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-9005\",\"target_tag\":\"v3.7.3\",\"drain_traffic\":true}}"
+  },
+  {
+    "prompt": "Pod redis-cluster-cache-3 in ap-northeast-1 is unresponsive. Gracefully reboot it.",
+    "completion": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"redis-cluster-cache-3\",\"region\":\"ap-northeast-1\",\"force\":false,\"reason\":\"Unresponsive healthcheck timeout\"}}"
+  }
+]

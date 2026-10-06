@@ -1,0 +1,42 @@
+{
+    "adapter_path": "artifacts/adapters",
+    "batch_size": 4,
+    "clear_cache_threshold": 0,
+    "config": "config/lora_config.yaml",
+    "data": "data",
+    "fine_tune_type": "lora",
+    "grad_accumulation_steps": 1,
+    "grad_checkpoint": false,
+    "iters": 2,
+    "learning_rate": 0.0001,
+    "lora_parameters": {
+        "rank": 8,
+        "scale": 16.0,
+        "dropout": 0.05
+    },
+    "lr_schedule": null,
+    "mask_prompt": true,
+    "max_seq_length": 1024,
+    "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+    "num_layers": 16,
+    "optimizer": "adamw",
+    "optimizer_config": {
+        "adam": {},
+        "adamw": {},
+        "muon": {},
+        "sgd": {},
+        "adafactor": {}
+    },
+    "project_name": null,
+    "report_to": null,
+    "resume_adapter_file": null,
+    "save_every": 50,
+    "seed": 42,
+    "steps_per_eval": 25,
+    "steps_per_report": 1,
+    "test": false,
+    "test_batches": 500,
+    "train": true,
+    "trust_remote_code": false,
+    "val_batches": 10
+}
