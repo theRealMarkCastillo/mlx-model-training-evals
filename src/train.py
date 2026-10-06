@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import mlx_lm.lora as lora
 from mlx_lm.tuner.callbacks import TrainingCallback
+from src.models import PRESETS, add_preset_argument
 
 console = Console()
 
@@ -97,7 +98,12 @@ def plot_loss_curve(callback: MetricsLoggerCallback, output_path: Path):
     console.print(f"[green]✓[/green] Saved loss curve plot to [bold]{output_path}[/bold]")
 
 
-def run_training(config_path: str = "config/lora_config.yaml", iters_override: int = None):
+def run_training(config_path: str = None, iters_override: int = None, *, preset: str = None, output_dir: str = None):
+    if config_path is not None and preset is not None:
+        raise ValueError("Choose a config file or a preset, not both.")
+    profile = PRESETS[preset or "3b"]
+    config_path = config_path or profile.config_path
+    artifacts_dir = Path(output_dir) if output_dir is not None else profile.output_dir
     console.print(
         Panel.fit(
             "[bold cyan]Apple Silicon MLX LoRA Fine-Tuning Pipeline[/bold cyan]\n"
@@ -146,13 +152,14 @@ def run_training(config_path: str = "config/lora_config.yaml", iters_override: i
     final_active_mem_mb = mx.get_active_memory() / (1024**2)
 
     # Save artifacts
-    artifacts_dir = Path("artifacts")
-    artifacts_dir.mkdir(exist_ok=True)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     history_file = artifacts_dir / "training_history.json"
     with open(history_file, "w") as f:
         json.dump(
             {
+                "model": args.model,
+                "adapter": args.adapter_path,
                 "training_time_seconds": round(total_time, 2),
                 "peak_memory_mb": round(peak_mem_mb, 2),
                 "final_active_memory_mb": round(final_active_mem_mb, 2),
@@ -186,8 +193,11 @@ def run_training(config_path: str = "config/lora_config.yaml", iters_override: i
 
 if __name__ == "__main__":
     cli_parser = argparse.ArgumentParser(description="Train MLX LoRA model")
-    cli_parser.add_argument("-c", "--config", default="config/lora_config.yaml", help="Path to config file")
+    selection = cli_parser.add_mutually_exclusive_group()
+    selection.add_argument("-c", "--config", help="Path to config file")
+    add_preset_argument(selection)
+    cli_parser.add_argument("--output-dir", help="Directory for training history and plots")
     cli_parser.add_argument("--iters", type=int, default=None, help="Override training iterations")
     parsed = cli_parser.parse_args()
 
-    run_training(config_path=parsed.config, iters_override=parsed.iters)
+    run_training(config_path=parsed.config, iters_override=parsed.iters, preset=parsed.preset, output_dir=parsed.output_dir)

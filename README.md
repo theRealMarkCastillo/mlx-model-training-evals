@@ -129,6 +129,58 @@ uv run jupyter lab tutorial.ipynb
 
 Or run everything from the terminal using the modular CLI scripts described below.
 
+### Trying Larger Qwen Models
+
+Choose a **Qwen2.5 Instruct 4-bit** preset across the entire workflow:
+
+```bash
+uv run python main.py models
+
+# Try the base model interactively through the local API before fine-tuning
+uv run python main.py serve --preset 14b --base --port 8080
+
+# Short training run to measure memory and runtime, then evaluate
+uv run python main.py train --preset 14b --iters 10
+uv run python main.py eval --preset 14b --samples 10
+uv run python main.py benchmark --preset 14b
+
+# Fuse and serve this model's trained adapter
+uv run python main.py fuse --preset 14b
+uv run python main.py serve --preset 14b --port 8080
+```
+
+| Preset | Model | Training batch | Adapted layers | Gradient checkpointing |
+| :--- | :--- | ---: | ---: | :--- |
+| `3b` (default) | [Qwen2.5-3B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-3B-Instruct-4bit) | 4 | 16 | Off |
+| `7b` | [Qwen2.5-7B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-7B-Instruct-4bit) | 2 | 16 | On |
+| `14b` | [Qwen2.5-14B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-14B-Instruct-4bit) | 1 | 16 | On |
+| `32b` | [Qwen2.5-32B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-32B-Instruct-4bit) | 1 | 8 | On |
+| `72b` | [Qwen2.5-72B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-72B-Instruct-4bit) | 1 | 4 | On |
+
+These are starting configurations, **not measured memory-fit guarantees**. Start with 7B or
+14B, inspect `peak_memory_mb` in the training history, and move up as memory and runtime
+allow. Training needs additional memory for activations and optimizer state beyond the
+quantized weights. The 72B preset is an exploratory option for high-memory machines.
+Smaller batches and fewer adapted layers change the training budget: equal iteration
+counts are not equal training exposure across presets. Keep the same holdout samples
+when comparing results. The scorecards below describe the original 3B run only.
+
+Larger-model adapters, histories, plots, evaluation reports, benchmark reports, and fused
+models live under `artifacts/qwen2.5-<size>/`, so they do not overwrite the 3B results in
+`artifacts/`. Repeating a run of the same preset reuses its output paths. Downloads happen
+on first use through Hugging Face. Each model needs its own trained adapter before
+running `eval`, `benchmark`, or `fuse`.
+
+The scripts also accept `--preset` directly (for example,
+`uv run python src/train.py --preset 32b --iters 10`). Edit the corresponding
+`config/qwen2.5-<size>.yaml` to tune batch size, sequence length, or LoRA layers; these
+files also work with the native MLX CLI. `--config` selects a custom training config
+instead of a preset. `--output-dir` overrides the report/plot directory; training adapter
+locations remain controlled by the YAML `adapter_path`.
+
+In `tutorial.ipynb`, change `PRESET = "3b"` in the training cell and rerun that cell and
+the subsequent evaluation and benchmark cells to use the same model throughout.
+
 ---
 
 ## 🛠️ Module 1: Dataset Engineering & Prompt Masking

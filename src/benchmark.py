@@ -24,6 +24,7 @@ from rich.table import Table
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import mlx_lm
+from src.models import add_preset_argument, resolve_model_paths
 
 console = Console()
 
@@ -94,10 +95,14 @@ def demonstrate_adapter_fusion(model_name: str, adapter_path: str, save_path: st
 
 
 def run_benchmark_suite(
-    model_name: str = "mlx-community/Qwen2.5-3B-Instruct-4bit",
-    adapter_path: str = "artifacts/adapters",
+    model_name: str = None,
+    adapter_path: str = None,
     test_prompt: str = "Deploy authentication service auth-api version v3.12.0 to production with 5 replicas and notify #deployments.",
+    *,
+    preset: str = None,
+    output_dir: str = None,
 ):
+    model_name, adapter_path, artifacts_dir = resolve_model_paths(preset, model_name, adapter_path, output_dir)
     console.print(
         Panel.fit(
             "[bold cyan]Apple Silicon Metal Performance & Profiling Benchmark[/bold cyan]\n"
@@ -111,14 +116,14 @@ def run_benchmark_suite(
     base_model, tokenizer = mlx_lm.load(model_name)
     base_stats = benchmark_generation(base_model, tokenizer, test_prompt)
     del base_model
-    mx.metal.clear_cache()
+    mx.clear_cache()
 
     # 2. LoRA Fine-Tuned Model Benchmark
     console.print("\n[bold]2. Benchmarking LoRA Fine-Tuned Model...[/bold]")
     lora_model, tokenizer = mlx_lm.load(model_name, adapter_path=adapter_path)
     lora_stats = benchmark_generation(lora_model, tokenizer, test_prompt)
     del lora_model
-    mx.metal.clear_cache()
+    mx.clear_cache()
 
     # Summary Table
     table = Table(title="Apple Silicon Hardware & Inference Benchmark", show_header=True, header_style="bold green")
@@ -134,23 +139,31 @@ def run_benchmark_suite(
     console.print(table)
 
     results = {
+        "model": model_name,
+        "adapter": adapter_path,
         "base_stats": base_stats,
         "lora_stats": lora_stats,
     }
-    with open("artifacts/benchmark_results.json", "w") as f:
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    with open(artifacts_dir / "benchmark_results.json", "w") as f:
         json.dump(results, f, indent=2)
 
-    console.print("[green]✓[/green] Benchmark results saved to [bold]artifacts/benchmark_results.json[/bold]")
+    console.print(f"[green]✓[/green] Benchmark results saved to [bold]{artifacts_dir / 'benchmark_results.json'}[/bold]")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Benchmark MLX model performance")
-    parser.add_argument("--model", default="mlx-community/Qwen2.5-3B-Instruct-4bit")
-    parser.add_argument("--adapter", default="artifacts/adapters")
+    selection = parser.add_mutually_exclusive_group()
+    add_preset_argument(selection)
+    selection.add_argument("--model")
+    parser.add_argument("--adapter")
+    parser.add_argument("--output-dir", help="Directory for benchmark report and fused model")
     parser.add_argument("--fuse", action="store_true", help="Run model fusion test")
     args = parser.parse_args()
 
-    run_benchmark_suite(model_name=args.model, adapter_path=args.adapter)
+    run_benchmark_suite(model_name=args.model, adapter_path=args.adapter, preset=args.preset, output_dir=args.output_dir)
 
     if args.fuse:
-        demonstrate_adapter_fusion(args.model, args.adapter)
+        model, adapter, output_dir = resolve_model_paths(args.preset, args.model, args.adapter, args.output_dir)
+        if not demonstrate_adapter_fusion(model, adapter, str(output_dir / "fused_model"))[0]:
+            sys.exit(1)

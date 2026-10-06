@@ -15,7 +15,7 @@ cells.append(nbf.v4.new_markdown_cell("""# 🚀 Modern Local LLM Fine-Tuning & C
 
 Welcome! In this tutorial, you will learn how to:
 1. **Leverage Apple Silicon's Unified Memory Architecture** using Apple's native **MLX** framework.
-2. **Fine-tune an Instruct Model (Qwen 2.5 3B)** for high-reliability **JSON Tool Calling** using LoRA / QLoRA.
+2. **Fine-tune an Instruct Model (Qwen 2.5, 3B–72B)** for high-reliability **JSON Tool Calling** using LoRA / QLoRA.
 3. **Apply Prompt Masking** so loss backpropagation only updates assistant response tokens.
 4. **Implement a 4-Pillar Evaluation Suite**:
    - **Pillar 1: Intrinsic Metrics** (Cross-Entropy Loss & Test Perplexity)
@@ -142,18 +142,23 @@ For `Qwen2.5-3B-Instruct-4bit`:
 - Memory required: **< 10 GB** during backpropagation!"""))
 
 # Cell 8: Training / Config Execution
-cells.append(nbf.v4.new_code_cell("""# You can run training directly from Python or via the MLX CLI:
-# CLI: uv run python -m mlx_lm lora -c config/lora_config.yaml --train --iters 80
-
+cells.append(nbf.v4.new_code_cell("""from src.models import PRESETS
 from src.train import run_training
 
-# Run training (or inspect existing artifacts if already run)
-if not Path("artifacts/adapters/adapters.safetensors").exists():
+# Choose 3b, 7b, 14b, 32b, or 72b. Start with a short run for larger models.
+# Larger presets use smaller batches and gradient checkpointing.
+PRESET = "3b"
+profile = PRESETS[PRESET]
+adapter_file = Path(profile.adapter_path) / "adapters.safetensors"
+print(f"Model: {profile.model} | Artifacts: {profile.output_dir}")
+
+# Run training (or inspect existing artifacts for this model)
+if not adapter_file.exists():
     print("Executing fine-tuning...")
-    run_training(config_path="config/lora_config.yaml", iters_override=80)
+    run_training(preset=PRESET, iters_override=80)
 else:
-    print("Found existing fine-tuned LoRA adapters in 'artifacts/adapters'!")
-    adapter_size_mb = Path("artifacts/adapters/adapters.safetensors").stat().st_size / (1024**2)
+    print(f"Found existing fine-tuned LoRA adapters in {profile.adapter_path}!")
+    adapter_size_mb = adapter_file.stat().st_size / (1024**2)
     print(f"Adapter weight file size: {adapter_size_mb:.2f} MB")"""))
 
 # Cell 9: Markdown on 4-Pillar Evaluation Suite
@@ -173,8 +178,7 @@ cells.append(nbf.v4.new_code_cell("""from src.evaluate import run_comprehensive_
 
 # Run the 4-Pillar evaluation on holdout test samples
 report = run_comprehensive_evaluation(
-    model_name="mlx-community/Qwen2.5-3B-Instruct-4bit",
-    adapter_path="artifacts/adapters",
+    preset=PRESET,
     num_eval_samples=20
 )"""))
 
@@ -182,8 +186,8 @@ report = run_comprehensive_evaluation(
 cells.append(nbf.v4.new_code_cell("""# Display Evaluation Comparison Chart
 from IPython.display import Image, display
 
-if Path("artifacts/eval_comparison.png").exists():
-    display(Image(filename="artifacts/eval_comparison.png"))
+if (profile.output_dir / "eval_comparison.png").exists():
+    display(Image(filename=str(profile.output_dir / "eval_comparison.png")))
 else:
     print("eval_comparison.png not found. Run evaluation first.")"""))
 
@@ -202,12 +206,12 @@ cells.append(nbf.v4.new_code_cell("""from src.benchmark import run_benchmark_sui
 
 # Run benchmark across Base vs LoRA
 run_benchmark_suite(
-    model_name="mlx-community/Qwen2.5-3B-Instruct-4bit",
-    adapter_path="artifacts/adapters"
+    preset=PRESET
 )
 
 print("\\nTo serve your fine-tuned model as an OpenAI-compatible API on Apple Silicon:")
-print("  uv run python -m mlx_lm.server --model artifacts/fused_model --port 8080")"""))
+print(f"  uv run python main.py fuse --preset {PRESET}")
+print(f"  uv run python main.py serve --preset {PRESET} --port 8080")"""))
 
 nb.cells = cells
 

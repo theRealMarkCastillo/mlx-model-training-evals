@@ -14,5 +14,6 @@ wheels/
 
 # Large model artifacts and weights
 artifacts/fused_model/
+artifacts/qwen2.5-*/
 *.safetensors
 .ipynb_checkpoints/

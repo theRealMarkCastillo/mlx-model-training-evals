@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import mlx_lm
 import mlx_lm.lora as lora
 from src.schema import SYSTEM_PROMPT, parse_and_validate
+from src.models import add_preset_argument, resolve_model_paths
 
 console = Console()
 
@@ -207,12 +208,16 @@ def plot_eval_metrics(base_metrics: Dict[str, Any], lora_metrics: Dict[str, Any]
 
 
 def run_comprehensive_evaluation(
-    model_name: str = "mlx-community/Qwen2.5-3B-Instruct-4bit",
-    adapter_path: str = "artifacts/adapters",
+    model_name: str = None,
+    adapter_path: str = None,
     test_jsonl: str = "data/test.jsonl",
     raw_test_file: str = "data/raw_test_samples.json",
     num_eval_samples: int = 30,
+    *,
+    preset: str = None,
+    output_dir: str = None,
 ):
+    model_name, adapter_path, artifacts_dir = resolve_model_paths(preset, model_name, adapter_path, output_dir)
     console.print(
         Panel.fit(
             "[bold green]Running Comprehensive 4-Pillar Evaluation Suite[/bold green]\n"
@@ -281,8 +286,7 @@ def run_comprehensive_evaluation(
     console.print(summary_table)
 
     # Save artifact files
-    artifacts_dir = Path("artifacts")
-    artifacts_dir.mkdir(exist_ok=True)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
 
     plot_eval_metrics(base_metrics, lora_metrics, artifacts_dir / "eval_comparison.png")
 
@@ -304,14 +308,17 @@ def run_comprehensive_evaluation(
     with open(artifacts_dir / "eval_results.json", "w") as f:
         json.dump(report, f, indent=2)
 
-    console.print(f"[green]✓[/green] Full evaluation report saved to [bold]artifacts/eval_results.json[/bold]")
+    console.print(f"[green]✓[/green] Full evaluation report saved to [bold]{artifacts_dir / 'eval_results.json'}[/bold]")
     return report
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate MLX model against base model")
-    parser.add_argument("--model", default="mlx-community/Qwen2.5-3B-Instruct-4bit", help="Base model identifier")
-    parser.add_argument("--adapter", default="artifacts/adapters", help="LoRA adapter directory")
+    selection = parser.add_mutually_exclusive_group()
+    add_preset_argument(selection)
+    selection.add_argument("--model", help="Base model identifier")
+    parser.add_argument("--adapter", help="LoRA adapter directory")
+    parser.add_argument("--output-dir", help="Directory for evaluation report and plot")
     parser.add_argument("--samples", type=int, default=30, help="Number of test samples to evaluate")
     args = parser.parse_args()
 
@@ -319,4 +326,6 @@ if __name__ == "__main__":
         model_name=args.model,
         adapter_path=args.adapter,
         num_eval_samples=args.samples,
+        preset=args.preset,
+        output_dir=args.output_dir,
     )
