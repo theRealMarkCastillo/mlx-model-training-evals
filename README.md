@@ -2,6 +2,8 @@
 
 A production-grade tutorial and reference implementation for **fine-tuning local language models with LoRA/QLoRA** and conducting **multi-pillar evaluations** natively on Apple Silicon using Apple's [MLX](https://github.com/ml-explore/mlx) framework.
 
+**GitHub repository:** [theRealMarkCastillo/mlx-model-training-evals](https://github.com/theRealMarkCastillo/mlx-model-training-evals)
+
 ---
 
 ## 📑 Table of Contents
@@ -108,7 +110,7 @@ This project uses [`uv`](https://github.com/astral-sh/uv) for fast Python enviro
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/your-username/mlx-model-training-evals.git
+git clone https://github.com/theRealMarkCastillo/mlx-model-training-evals.git
 cd mlx-model-training-evals
 
 # uv automatically creates .venv and installs locked dependencies in seconds
@@ -144,7 +146,7 @@ MLX uses the standard ChatML / OpenAI JSONL format:
 ```
 
 ### Why Prompt Masking Matters
-In [`config/lora_config.yaml`](file:///Users/markcastillo/git/mlx-model-training-evals/config/lora_config.yaml):
+In [`config/lora_config.yaml`](config/lora_config.yaml):
 ```yaml
 mask_prompt: true
 ```
@@ -155,7 +157,7 @@ Without prompt masking, standard language model training computes cross-entropy 
 ## 🏋️ Module 2: LoRA & QLoRA Fine-Tuning
 
 ### The Hyperparameters
-In [`config/lora_config.yaml`](file:///Users/markcastillo/git/mlx-model-training-evals/config/lora_config.yaml):
+In [`config/lora_config.yaml`](config/lora_config.yaml):
 ```yaml
 model: "mlx-community/Qwen2.5-3B-Instruct-4bit"
 data: "data"
