@@ -3,13 +3,17 @@ Schema definitions and validation utilities for tool calling.
 Uses Pydantic v2 to enforce strict typing, validation, and serialization.
 """
 
-from typing import Literal, Union, List, Dict, Any, Optional
-from pydantic import BaseModel, Field, ValidationError
+from typing import Annotated, Literal, Union, List, Dict, Any
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 import json
-import re
+import math
 
 
-class DeployServiceParams(BaseModel):
+class StrictModel(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+
+
+class DeployServiceParams(StrictModel):
     service: str = Field(description="Name of the microservice (e.g. auth-service, payment-api)")
     version: str = Field(description="Release tag or semantic version (e.g. v2.4.1, commit hash)")
     environment: Literal["production", "staging", "development"] = Field(
@@ -21,14 +25,14 @@ class DeployServiceParams(BaseModel):
     )
 
 
-class RestartPodParams(BaseModel):
+class RestartPodParams(StrictModel):
     pod_name: str = Field(description="Identifier or exact name of the kubernetes pod")
     region: str = Field(description="Cloud region (e.g. us-east-1, eu-west-1, ap-northeast-1)")
     force: bool = Field(default=False, description="Whether to kill gracefully or forcefully immediately")
     reason: str = Field(description="Operational rationale for restart (e.g. high memory leak, unresponsive)")
 
 
-class RollbackDeploymentParams(BaseModel):
+class RollbackDeploymentParams(StrictModel):
     deployment_id: str = Field(description="Deployment identifier (e.g. dep-9821, auth-v2)")
     target_tag: str = Field(description="Target version tag to restore (e.g. v1.8.4)")
     drain_traffic: bool = Field(
@@ -36,55 +40,38 @@ class RollbackDeploymentParams(BaseModel):
     )
 
 
-class ScaleClusterParams(BaseModel):
+class ScaleClusterParams(StrictModel):
     cluster_name: str = Field(description="Name of the Kubernetes or compute cluster (e.g. eks-core-prod)")
     node_count: int = Field(ge=1, le=500, description="Desired total number of worker nodes")
     auto_scale: bool = Field(default=True, description="Enable cluster autoscaler daemon")
     instance_type: str = Field(default="m6i.xlarge", description="Cloud instance size or VM type")
 
 
-class ToolCall(BaseModel):
-    tool: Literal["deploy_service", "restart_pod", "rollback_deployment", "scale_cluster"]
-    parameters: Union[DeployServiceParams, RestartPodParams, RollbackDeploymentParams, ScaleClusterParams]
+class DeployServiceCall(StrictModel):
+    tool: Literal["deploy_service"]
+    parameters: DeployServiceParams
 
 
-SYSTEM_PROMPT = """You are an automated Cloud Infrastructure Action Dispatcher.
-Your task is to convert operational requests into strictly structured tool calls.
+class RestartPodCall(StrictModel):
+    tool: Literal["restart_pod"]
+    parameters: RestartPodParams
 
-Available Tools:
-1. deploy_service:
-   Parameters:
-   - service (str): Microservice name
-   - version (str): Target version/tag
-   - environment (str: "production" | "staging" | "development")
-   - replicas (int: 1-100, default 2)
-   - notify_channels (list of str, default [])
 
-2. restart_pod:
-   Parameters:
-   - pod_name (str): Exact pod name
-   - region (str): Cloud region (e.g. us-east-1, us-west-2, eu-west-1)
-   - force (bool: default false)
-   - reason (str): Operational rationale
+class RollbackDeploymentCall(StrictModel):
+    tool: Literal["rollback_deployment"]
+    parameters: RollbackDeploymentParams
 
-3. rollback_deployment:
-   Parameters:
-   - deployment_id (str): Deployment name or ID
-   - target_tag (str): Target version to restore
-   - drain_traffic (bool: default true)
 
-4. scale_cluster:
-   Parameters:
-   - cluster_name (str): Cluster identifier
-   - node_count (int: 1-500)
-   - auto_scale (bool: default true)
-   - instance_type (str: default "m6i.xlarge")
+class ScaleClusterCall(StrictModel):
+    tool: Literal["scale_cluster"]
+    parameters: ScaleClusterParams
 
-CRITICAL INSTRUCTIONS:
-- You must respond ONLY with a single valid JSON object containing "tool" and "parameters".
-- Do NOT wrap your response in markdown code blocks (no ```json or ```).
-- Do NOT add any preamble, conversational greeting, explanation, or follow-up text.
-- Strictly adhere to parameter names and types."""
+
+class ToolCall(RootModel[Annotated[
+    Union[DeployServiceCall, RestartPodCall, RollbackDeploymentCall, ScaleClusterCall],
+    Field(discriminator="tool"),
+]]):
+    """Bind each tool name to exactly its own parameter schema."""
 
 
 PARAM_MODEL_MAP = {
@@ -95,74 +82,80 @@ PARAM_MODEL_MAP = {
 }
 
 
+def build_system_prompt():
+    lines = [
+        "You are an automated Cloud Infrastructure Action Dispatcher.",
+        "Convert operational requests into strictly structured tool calls.",
+        "Available tools and parameters:",
+    ]
+    for name, model in PARAM_MODEL_MAP.items():
+        schema = model.model_json_schema()
+        lines.append(name + ":")
+        for field, info in schema["properties"].items():
+            constraints = {k: v for k, v in info.items() if k not in ("title", "description")}
+            if field == "notify_channels":
+                constraints["default"] = []
+            lines.append(f"- {field}: {json.dumps(constraints)}. {info.get('description', '')}")
+    lines.extend([
+        "Respond ONLY with one JSON object containing tool and parameters.",
+        "No markdown fences, preamble, explanations, or extra fields. Use exact parameter types.",
+        "Include all parameters, using documented defaults when omitted in the request.",
+        "For restart_pod.reason, copy the reason phrase exactly as written in the request, without surrounding sentence punctuation.",
+        "Only notify channels explicitly requested; otherwise use an empty list.",
+    ])
+    return "\n".join(lines)
+
+
+SYSTEM_PROMPT = build_system_prompt()
+
+
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"Duplicate JSON key: {key}")
+        result[key] = value
+    return result
+
+
+def _finite_float(value):
+    number = float(value)
+    if not math.isfinite(number):
+        raise ValueError("JSON number exceeds finite floating-point range")
+    return number
+
+
+def _invalid_constant(value):
+    raise ValueError(f"Non-JSON numeric constant: {value}")
+
+
 def parse_and_validate(raw_text: str) -> Dict[str, Any]:
+    """Validate without modifying decoded data; normalized defaults are separate.
+
+    A recoverable object inside chatter counts as valid JSON but not pure JSON.
+    Duplicate keys and nonstandard numeric constants are rejected.
     """
-    Evaluates raw output from the model.
-    Returns:
-        {
-            "raw_text": str,
-            "is_pure_json": bool (True if output was clean JSON without markdown fences/chatter),
-            "is_valid_json": bool (True if parseable JSON anywhere),
-            "is_schema_valid": bool (True if adheres to Pydantic ToolCall),
-            "parsed_data": dict | None,
-            "error": str | None
-        }
-    """
-    clean_text = raw_text.strip()
-    is_pure_json = False
-    is_valid_json = False
-    is_schema_valid = False
-    parsed_data = None
-    error_msg = None
-
-    # Check 1: Is it pure JSON (no markdown backticks, starts with { and ends with })?
-    if clean_text.startswith("{") and clean_text.endswith("}") and "```" not in clean_text:
-        try:
-            parsed_data = json.loads(clean_text)
-            is_pure_json = True
-            is_valid_json = True
-        except json.JSONDecodeError as e:
-            error_msg = f"JSON parse error: {str(e)}"
-
-    # Check 2: If not pure JSON, can we extract JSON from markdown fences?
-    if not is_valid_json:
-        json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", clean_text, re.DOTALL)
-        if json_match:
-            try:
-                parsed_data = json.loads(json_match.group(1))
-                is_valid_json = True
-            except json.JSONDecodeError as e:
-                error_msg = f"Extracted JSON decode error: {str(e)}"
-        else:
-            # Try searching for any outermost { ... }
-            bracket_match = re.search(r"(\{.*\})", clean_text, re.DOTALL)
-            if bracket_match:
-                try:
-                    parsed_data = json.loads(bracket_match.group(1))
-                    is_valid_json = True
-                except json.JSONDecodeError as e:
-                    error_msg = f"Loose JSON parse error: {str(e)}"
-
-    # Check 3: Schema validation against Pydantic model
-    if is_valid_json and isinstance(parsed_data, dict):
-        tool_name = parsed_data.get("tool")
-        params = parsed_data.get("parameters")
-        if tool_name in PARAM_MODEL_MAP and isinstance(params, dict):
-            try:
-                param_model = PARAM_MODEL_MAP[tool_name]
-                validated_params = param_model(**params)
-                is_schema_valid = True
-                parsed_data["parameters"] = validated_params.model_dump()
-            except ValidationError as ve:
-                error_msg = f"Schema validation error: {ve.errors()[0]['msg']} on {ve.errors()[0]['loc']}"
-        else:
-            error_msg = f"Invalid or missing tool name: '{tool_name}'"
-
-    return {
-        "raw_text": raw_text,
-        "is_pure_json": is_pure_json,
-        "is_valid_json": is_valid_json,
-        "is_schema_valid": is_schema_valid,
-        "parsed_data": parsed_data,
-        "error": error_msg,
+    result = {
+        "raw_text": raw_text, "is_pure_json": False, "is_valid_json": False,
+        "is_schema_valid": False, "parsed_data": None, "normalized_data": None,
+        "error": None,
     }
+    decoder = json.JSONDecoder(object_pairs_hook=_unique_object, parse_constant=_invalid_constant, parse_float=_finite_float)
+    text = raw_text.strip()
+    try:
+        try:
+            parsed = decoder.decode(text)
+            result["is_pure_json"] = isinstance(parsed, dict)
+        except json.JSONDecodeError:
+            start = text.find("{")
+            if start < 0:
+                raise ValueError("No JSON object found")
+            parsed, _ = decoder.raw_decode(text[start:])
+        result["parsed_data"] = parsed
+        result["is_valid_json"] = True
+        validated = ToolCall.model_validate(parsed)
+        result["normalized_data"] = validated.model_dump()
+        result["is_schema_valid"] = True
+    except (ValueError, RecursionError) as exc:
+        result["error"] = str(exc)
+    return result

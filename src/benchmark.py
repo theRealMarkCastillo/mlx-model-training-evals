@@ -1,169 +1,121 @@
-"""
-MLX Inference & Apple Silicon Metal Profiler.
-
-Benchmarks:
-1. Time To First Token (TTFT)
-2. Prompt processing throughput (prefill tok/s)
-3. Token generation throughput (eval tok/s)
-4. Peak Unified Memory allocation (Metal)
-5. Weight fusion demonstration (mlx_lm.fuse)
-"""
+"""Measure the chat workload using streaming token metadata and wall-clock latency."""
 
 import argparse
-import json
-import subprocess
-import sys
-import time
 from pathlib import Path
+import sys
+from statistics import mean
 
 import mlx.core as mx
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import mlx_lm
+from src.dataset import positive_int
+from src.inference import generate_response
+from src.schema import SYSTEM_PROMPT
 from src.models import add_preset_argument, resolve_model_paths
+from src.runs import resolve_source, resolve_adapter_source, adapter_identity, new_run, finish_run, write_json, latest_path
+from src.fuse import fuse_model
 
 console = Console()
 
 
-def benchmark_generation(model, tokenizer, prompt: str, max_tokens: int = 120, warmup: int = 2, runs: int = 5):
-    """Measures TTFT, generation throughput, and peak Metal memory."""
-    console.print(f"[bold cyan]Running benchmark across {runs} iterations (prompt length: {len(tokenizer.encode(prompt))} tokens)...[/bold cyan]")
-
-    # Warmup
+def benchmark_generation(model, tokenizer, prompt, max_tokens=120, warmup=2, runs=5):
+    positive_int(runs)
+    positive_int(max_tokens)
+    if warmup < 0:
+        raise ValueError('warmup must be nonnegative')
+    messages = [{'role': 'system', 'content': SYSTEM_PROMPT}, {'role': 'user', 'content': prompt}]
     for _ in range(warmup):
-        _ = mlx_lm.generate(model, tokenizer, prompt=prompt, max_tokens=20, verbose=False)
-
+        generate_response(model, tokenizer, messages, max_tokens)
     mx.reset_peak_memory()
-    ttft_list = []
-    tok_per_sec_list = []
-    total_tokens_list = []
-
-    for i in range(runs):
-        t0 = time.perf_counter()
-        output = mlx_lm.generate(
-            model,
-            tokenizer,
-            prompt=prompt,
-            max_tokens=max_tokens,
-            verbose=False,
-        )
-        t1 = time.perf_counter()
-        gen_time = t1 - t0
-        tok_count = len(tokenizer.encode(output))
-
-        total_tokens_list.append(tok_count)
-        if gen_time > 0 and tok_count > 0:
-            tok_per_sec_list.append(tok_count / gen_time)
-
-    peak_memory_mb = mx.get_peak_memory() / (1024**2)
-    active_memory_mb = mx.get_active_memory() / (1024**2)
-    avg_speed = sum(tok_per_sec_list) / len(tok_per_sec_list) if tok_per_sec_list else 0.0
-
+    records = [generate_response(model, tokenizer, messages, max_tokens) for _ in range(runs)]
     return {
-        "avg_tokens_per_sec": round(avg_speed, 2),
-        "peak_metal_memory_mb": round(peak_memory_mb, 2),
-        "active_metal_memory_mb": round(active_memory_mb, 2),
-        "avg_tokens_generated": round(sum(total_tokens_list) / len(total_tokens_list), 1),
+        **{f'avg_{key}': mean(r[key] for r in records) for key in (
+            'ttft_seconds', 'latency_seconds', 'prefill_tokens_per_sec',
+            'decode_tokens_per_sec', 'end_to_end_tokens_per_sec', 'output_tokens', 'prompt_tokens',
+        )},
+        'peak_metal_memory_mb': mx.get_peak_memory() / (1024**2),
+        'active_metal_memory_mb': mx.get_active_memory() / (1024**2),
+        'runs': records,
     }
-
-
-def demonstrate_adapter_fusion(model_name: str, adapter_path: str, save_path: str = "artifacts/fused_model"):
-    """Fuses LoRA adapters directly into the model weights for zero-overhead deployment."""
-    console.print("\n[bold magenta]Demonstrating LoRA Adapter Fusion (`mlx_lm.fuse`)...[/bold magenta]")
-    cmd = [
-        "uv", "run", "python", "-m", "mlx_lm.fuse",
-        "--model", model_name,
-        "--adapter-path", adapter_path,
-        "--save-path", save_path,
-    ]
-    console.print(f"Command: [yellow]{' '.join(cmd)}[/yellow]")
-    t0 = time.time()
-    res = subprocess.run(cmd, capture_output=True, text=True)
-    fusion_time = time.time() - t0
-
-    if res.returncode == 0:
-        console.print(f"[green]✓[/green] Model successfully fused in {fusion_time:.2f} seconds!")
-        console.print(f"Fused model saved to: [bold]{save_path}[/bold]")
-        return True, fusion_time
-    else:
-        console.print(f"[red]Fusion failed:[/red] {res.stderr}")
-        return False, fusion_time
 
 
 def run_benchmark_suite(
-    model_name: str = None,
-    adapter_path: str = None,
-    test_prompt: str = "Deploy authentication service auth-api version v3.12.0 to production with 5 replicas and notify #deployments.",
-    *,
-    preset: str = None,
-    output_dir: str = None,
+    model_name=None, adapter_path=None,
+    test_prompt='Deploy auth-api version v3.12.0 to production with 5 replicas and notify #deployments.',
+    *, preset=None, output_dir=None, fused_path=None, fuse=False, runs=5, warmup=2, max_tokens=120,
+    quality_samples=30,
 ):
-    model_name, adapter_path, artifacts_dir = resolve_model_paths(preset, model_name, adapter_path, output_dir)
-    console.print(
-        Panel.fit(
-            "[bold cyan]Apple Silicon Metal Performance & Profiling Benchmark[/bold cyan]\n"
-            f"Device: [green]Apple Silicon Metal (Unified Memory)[/green] | Model: [yellow]{model_name}[/yellow]",
-            border_style="cyan",
-        )
+    positive_int(runs)
+    positive_int(max_tokens)
+    positive_int(quality_samples)
+    if warmup < 0:
+        raise ValueError('warmup must be nonnegative')
+    if fuse and fused_path:
+        raise ValueError('Choose either fuse or fused_path')
+    model_name, adapter_path, root = resolve_model_paths(preset, model_name, adapter_path, output_dir)
+    adapter_files = adapter_identity(adapter_path)
+    source, identity = resolve_adapter_source(model_name, adapter_path)
+    if fuse:
+        fused_path = fuse_model(model_name, adapter_path, str(root / 'fused_model'))
+    directory, manifest = new_run(
+        root, 'benchmark', model=model_name, model_source=identity, adapter=adapter_files,
+        messages=[{'role': 'system', 'content': SYSTEM_PROMPT}, {'role': 'user', 'content': test_prompt}],
+        generation={'temperature': 0.0, 'max_tokens': max_tokens, 'warmup': warmup, 'runs': runs},
+        token_count_convention='MLX generation_tokens, including terminal EOS when generated',
     )
-
-    # 1. Base Model Benchmark
-    console.print("\n[bold]1. Benchmarking Base Model...[/bold]")
-    base_model, tokenizer = mlx_lm.load(model_name)
-    base_stats = benchmark_generation(base_model, tokenizer, test_prompt)
-    del base_model
-    mx.clear_cache()
-
-    # 2. LoRA Fine-Tuned Model Benchmark
-    console.print("\n[bold]2. Benchmarking LoRA Fine-Tuned Model...[/bold]")
-    lora_model, tokenizer = mlx_lm.load(model_name, adapter_path=adapter_path)
-    lora_stats = benchmark_generation(lora_model, tokenizer, test_prompt)
-    del lora_model
-    mx.clear_cache()
-
-    # Summary Table
-    table = Table(title="Apple Silicon Hardware & Inference Benchmark", show_header=True, header_style="bold green")
-    table.add_column("Benchmark Metric", style="cyan")
-    table.add_column("Base Model", justify="right")
-    table.add_column("LoRA Model", justify="right")
-
-    table.add_row("Generation Speed", f"{base_stats['avg_tokens_per_sec']} tok/s", f"{lora_stats['avg_tokens_per_sec']} tok/s")
-    table.add_row("Peak Metal Memory", f"{base_stats['peak_metal_memory_mb']} MB", f"{lora_stats['peak_metal_memory_mb']} MB")
-    table.add_row("Active Metal Memory", f"{base_stats['active_metal_memory_mb']} MB", f"{lora_stats['active_metal_memory_mb']} MB")
-    table.add_row("Avg Output Length", f"{base_stats['avg_tokens_generated']} tokens", f"{lora_stats['avg_tokens_generated']} tokens")
-
+    variants = [('base', source, None), ('lora', source, adapter_path)]
+    if fused_path:
+        fused_source, fused_identity = resolve_source(latest_path(fused_path))
+        manifest['fused_model'] = fused_identity
+        variants.append(('fused', fused_source, None))
+    report = {'model': model_name, 'adapter': adapter_path, 'run_dir': str(directory)}
+    for name, path, adapter in variants:
+        model, tokenizer = mlx_lm.load(path, **({'adapter_path': adapter} if adapter else {}))
+        try:
+            report[f'{name}_stats'] = benchmark_generation(model, tokenizer, test_prompt, max_tokens, warmup, runs)
+        finally:
+            del model
+            mx.clear_cache()
+    table = Table(title='Chat inference benchmark')
+    table.add_column('Metric')
+    for name, _, _ in variants:
+        table.add_column(name)
+    for key in ('avg_ttft_seconds', 'avg_latency_seconds', 'avg_prefill_tokens_per_sec', 'avg_decode_tokens_per_sec', 'avg_end_to_end_tokens_per_sec', 'peak_metal_memory_mb'):
+        table.add_row(key, *(f"{report[f'{name}_stats'][key]:.3f}" for name, _, _ in variants))
     console.print(table)
+    if fused_path:
+        from src.evaluate import run_comprehensive_evaluation
+        quality = run_comprehensive_evaluation(
+            model_name, adapter_path, num_eval_samples=quality_samples,
+            output_dir=str(root), fused_path=fused_path,
+        )
+        manifest['quality_evaluation'] = str(Path(quality['run_dir']) / 'eval_results.json')
+    report['manifest'] = {**manifest, 'status': 'complete'}
+    write_json(directory / 'benchmark_results.json', report)
+    finish_run(root, directory, manifest)
+    return report
 
-    results = {
-        "model": model_name,
-        "adapter": adapter_path,
-        "base_stats": base_stats,
-        "lora_stats": lora_stats,
-    }
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
-    with open(artifacts_dir / "benchmark_results.json", "w") as f:
-        json.dump(results, f, indent=2)
 
-    console.print(f"[green]✓[/green] Benchmark results saved to [bold]{artifacts_dir / 'benchmark_results.json'}[/bold]")
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Benchmark MLX model performance")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
     selection = parser.add_mutually_exclusive_group()
     add_preset_argument(selection)
-    selection.add_argument("--model")
-    parser.add_argument("--adapter")
-    parser.add_argument("--output-dir", help="Directory for benchmark report and fused model")
-    parser.add_argument("--fuse", action="store_true", help="Run model fusion test")
+    selection.add_argument('--model')
+    parser.add_argument('--adapter')
+    parser.add_argument('--output-dir')
+    fusion = parser.add_mutually_exclusive_group()
+    fusion.add_argument('--fuse', action='store_true', help='Fuse, benchmark, and evaluate all three variants')
+    fusion.add_argument('--fused', help='Benchmark and evaluate an existing fused model')
+    parser.add_argument('--runs', type=positive_int, default=5)
+    parser.add_argument('--warmup', type=int, default=2)
+    parser.add_argument('--max-tokens', type=positive_int, default=120)
+    parser.add_argument('--samples', type=positive_int, default=30, help='Samples for optional fused quality evaluation')
     args = parser.parse_args()
-
-    run_benchmark_suite(model_name=args.model, adapter_path=args.adapter, preset=args.preset, output_dir=args.output_dir)
-
-    if args.fuse:
-        model, adapter, output_dir = resolve_model_paths(args.preset, args.model, args.adapter, args.output_dir)
-        if not demonstrate_adapter_fusion(model, adapter, str(output_dir / "fused_model"))[0]:
-            sys.exit(1)
+    run_benchmark_suite(
+        args.model, args.adapter, preset=args.preset, output_dir=args.output_dir,
+        fused_path=args.fused, fuse=args.fuse, runs=args.runs, warmup=args.warmup,
+        max_tokens=args.max_tokens, quality_samples=args.samples,
+    )

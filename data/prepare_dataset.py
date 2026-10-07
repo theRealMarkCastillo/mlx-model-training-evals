@@ -22,7 +22,7 @@ from pathlib import Path
 from typing import List, Dict, Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from src.schema import SYSTEM_PROMPT
+from src.schema import SYSTEM_PROMPT, ToolCall
 
 SERVICES = ["auth-api", "billing-worker", "payment-service", "user-mgmt", "notification-hub", "search-indexer", "recommendation-v2", "cart-service", "gateway-proxy", "inventory-db"]
 ENVIRONMENTS = [
@@ -36,7 +36,7 @@ POD_NAMES = ["postgres-primary-0", "redis-cluster-cache-3", "kafka-broker-1", "c
 INSTANCE_TYPES = ["m6i.large", "m6i.xlarge", "c6i.2xlarge", "r6i.4xlarge", "t4g.xlarge"]
 
 
-def generate_deploy_example() -> Dict[str, Any]:
+def generate_deploy_example(template_indices=None) -> Dict[str, Any]:
     svc = random.choice(SERVICES)
     major = random.randint(1, 4)
     minor = random.randint(0, 15)
@@ -50,12 +50,14 @@ def generate_deploy_example() -> Dict[str, Any]:
 
     templates = [
         f"Please deploy {svc} version {version} to {env_phrase} with {replicas} replicas.",
-        f"Ship {version} of {svc} into {env_phrase}. Spin up {replicas} instances and alert {', '.join(channels)}." if channels else f"Ship {version} of {svc} into {env_phrase} with {replicas} instances.",
+        f"Ship {version} of {svc} into {env_phrase} with {replicas} instances.",
         f"Roll out release {version} for {svc} on {env_phrase} (replicas: {replicas}).",
-        f"Trigger a deployment of {svc} ({version}) in {env_phrase}. Make sure {replicas} replicas are running." + (f" Notify {channels[0]}." if channels else ""),
+        f"Trigger a deployment of {svc} ({version}) in {env_phrase}. Make sure {replicas} replicas are running.",
         f"Deploy {svc} {version} to {env_phrase} immediately. Set replica count to {replicas}."
     ]
-    prompt = random.choice(templates)
+    prompt = templates[random.choice(template_indices or range(len(templates)))]
+    if channels:
+        prompt += f" Notify {', '.join(channels)}."
     ground_truth = {
         "tool": "deploy_service",
         "parameters": {
@@ -69,7 +71,7 @@ def generate_deploy_example() -> Dict[str, Any]:
     return {"prompt": prompt, "completion": json.dumps(ground_truth, separators=(',', ':'))}
 
 
-def generate_restart_example() -> Dict[str, Any]:
+def generate_restart_example(template_indices=None) -> Dict[str, Any]:
     pod = random.choice(POD_NAMES)
     region = random.choice(REGIONS)
     force = random.choice([True, False])
@@ -84,24 +86,24 @@ def generate_restart_example() -> Dict[str, Any]:
 
     templates = [
         f"Pod {pod} in {region} is {reason_phrase}. {'Force restart it now' if force else 'Gracefully reboot it'}.",
-        f"Please restart {pod} located in {region}. Reason: {reason_clean}. {'Immediate force kill' if force else 'Allow graceful shutdown'}.",
+        f"Please restart {pod} located in {region}. Reason: {reason_phrase}. {'Immediate force kill' if force else 'Allow graceful shutdown'}.",
         f"We have an issue in {region}: {pod} is experiencing {reason_phrase}. Issue a {'forced' if force else 'standard'} restart.",
         f"Restart pod {pod} ({region}) due to {reason_phrase}." + (" Force restart requested." if force else ""),
     ]
-    prompt = random.choice(templates)
+    prompt = templates[random.choice(template_indices or range(len(templates)))]
     ground_truth = {
         "tool": "restart_pod",
         "parameters": {
             "pod_name": pod,
             "region": region,
             "force": force,
-            "reason": reason_clean,
+            "reason": reason_phrase,
         }
     }
     return {"prompt": prompt, "completion": json.dumps(ground_truth, separators=(',', ':'))}
 
 
-def generate_rollback_example() -> Dict[str, Any]:
+def generate_rollback_example(template_indices=None) -> Dict[str, Any]:
     dep_id = f"dep-{random.randint(1000, 9999)}"
     target_tag = f"v{random.randint(1, 3)}.{random.randint(0, 9)}.{random.randint(0, 5)}"
     drain = random.choice([True, False])
@@ -112,7 +114,7 @@ def generate_rollback_example() -> Dict[str, Any]:
         f"Execute rollback on {dep_id} restoring version {target_tag} ({'drain_traffic=true' if drain else 'no traffic draining'}).",
         f"Rollback {dep_id} to previous good state {target_tag}. {'Gracefully terminate after draining.' if drain else 'Immediate cutover without draining.'}",
     ]
-    prompt = random.choice(templates)
+    prompt = templates[random.choice(template_indices or range(len(templates)))]
     ground_truth = {
         "tool": "rollback_deployment",
         "parameters": {
@@ -124,7 +126,7 @@ def generate_rollback_example() -> Dict[str, Any]:
     return {"prompt": prompt, "completion": json.dumps(ground_truth, separators=(',', ':'))}
 
 
-def generate_scale_example() -> Dict[str, Any]:
+def generate_scale_example(template_indices=None) -> Dict[str, Any]:
     cluster = f"k8s-{random.choice(['prod', 'staging', 'compute'])}-cluster-{random.choice(['alpha', 'beta', 'west', 'east'])}"
     nodes = random.choice([5, 10, 20, 50, 80, 120])
     autoscale = random.choice([True, False])
@@ -136,7 +138,7 @@ def generate_scale_example() -> Dict[str, Any]:
         f"Resize {cluster} to {nodes} nodes ({inst}). {'Autoscale enabled.' if autoscale else 'Fixed size without autoscaling.'}",
         f"We need more compute in {cluster}. Scale to {nodes} nodes ({inst}). {'Ensure autoscaling is on.' if autoscale else 'Autoscaler should be disabled.'}",
     ]
-    prompt = random.choice(templates)
+    prompt = templates[random.choice(template_indices or range(len(templates)))]
     ground_truth = {
         "tool": "scale_cluster",
         "parameters": {
@@ -149,13 +151,33 @@ def generate_scale_example() -> Dict[str, Any]:
     return {"prompt": prompt, "completion": json.dumps(ground_truth, separators=(',', ':'))}
 
 
-def build_samples(n: int) -> List[Dict[str, Any]]:
+def build_samples(n: int, *, seen=None, template_indices=None) -> List[Dict[str, Any]]:
+    """Balanced tools, unique prompts, optionally restricted template families."""
     generators = [generate_deploy_example, generate_restart_example, generate_rollback_example, generate_scale_example]
+    seen = seen if seen is not None else set()
     samples = []
-    for _ in range(n):
-        gen = random.choice(generators)
-        samples.append(gen())
+    for i in range(n):
+        for _ in range(10000):
+            sample = generators[i % len(generators)](template_indices)
+            if sample["prompt"] not in seen:
+                ToolCall.model_validate_json(sample["completion"])
+                seen.add(sample["prompt"])
+                samples.append(sample)
+                break
+        else:
+            raise ValueError("Unable to generate enough unique samples")
+    random.shuffle(samples)
     return samples
+
+
+def build_splits(seed=42):
+    random.seed(seed)
+    seen = set()
+    return {
+        "train": build_samples(200, seen=seen, template_indices=(0, 1)),
+        "valid": build_samples(40, seen=seen, template_indices=(2,)),
+        "test": build_samples(60, seen=seen, template_indices=(3,)),
+    }
 
 
 def to_chat_format(samples: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -179,17 +201,12 @@ def save_jsonl(records: List[Dict[str, Any]], filepath: Path):
 
 
 def main():
-    random.seed(42)
     output_dir = Path("data")
     output_dir.mkdir(exist_ok=True)
 
     print("Generating synthetic infrastructure dispatch dataset...")
-    # Training split: 200 samples
-    train_samples = build_samples(200)
-    # Validation split: 40 samples
-    valid_samples = build_samples(40)
-    # Holdout test split: 60 samples
-    test_samples = build_samples(60)
+    splits = build_splits()
+    train_samples, valid_samples, test_samples = (splits[name] for name in ("train", "valid", "test"))
 
     save_jsonl(to_chat_format(train_samples), output_dir / "train.jsonl")
     save_jsonl(to_chat_format(valid_samples), output_dir / "valid.jsonl")

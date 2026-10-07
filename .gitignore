@@ -17,3 +17,7 @@ artifacts/fused_model/
 artifacts/qwen2.5-*/
 *.safetensors
 .ipynb_checkpoints/
+
+# New experiment runs and mutable latest pointers
+artifacts/**/runs/
+artifacts/**/latest*.json

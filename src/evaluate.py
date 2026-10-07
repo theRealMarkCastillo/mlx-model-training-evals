@@ -1,162 +1,98 @@
-"""
-Comprehensive Multi-Pillar Evaluation Suite for MLX Models.
-
-Evaluates Base Model vs. LoRA Fine-Tuned Model across 4 pillars:
-1. Intrinsic Metrics: Cross-Entropy Loss & Perplexity on holdout test set.
-2. Deterministic Metrics: Pure JSON rate, Pydantic Schema conformance, Tool Selection, and Parameter Exact Match.
-3. Comparative Inspection: Side-by-side generation review on tricky test prompts.
-4. Systems & Efficiency: Tokens/second generation speed, token count overhead, and peak Metal memory.
-"""
+"""Assistant-only loss, strict task scoring, and auditable per-sample results."""
 
 import argparse
-import json
 import math
 import sys
-import time
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any
 
 import matplotlib.pyplot as plt
 import mlx.core as mx
-import mlx.nn as nn
 from rich.console import Console
-from rich.panel import Panel
 from rich.table import Table
 from tqdm import tqdm
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import mlx_lm
-import mlx_lm.lora as lora
-from src.schema import SYSTEM_PROMPT, parse_and_validate
+from mlx_lm.tuner.datasets import ChatDataset
+from mlx_lm.tuner.trainer import default_loss
+from src.schema import parse_and_validate
+from src.dataset import load_samples, positive_int
+from src.inference import generate_response
 from src.models import add_preset_argument, resolve_model_paths
+from src.runs import resolve_source, resolve_adapter_source, file_identity, adapter_identity, new_run, finish_run, write_json, latest_path
 
 console = Console()
 
 
-def compute_perplexity(model, tokenizer, test_file: Path, max_samples: int = 50) -> Tuple[float, float]:
-    """
-    Computes average loss and perplexity on the holdout test set.
-    """
+def compute_perplexity(model, tokenizer, samples):
+    """Use the trainer's chat offsets and shifted-token loss mask without truncation."""
+    if not samples:
+        raise ValueError("Cannot score an empty dataset")
     model.eval()
+    dataset = ChatDataset(samples, tokenizer, mask_prompt=True)
     total_loss = 0.0
     total_tokens = 0
-
-    with open(test_file, "r", encoding="utf-8") as f:
-        lines = [line.strip() for line in f if line.strip()][:max_samples]
-
-    for line in lines:
-        sample = json.loads(line)
-        # Apply chat template
-        messages = sample["messages"]
-        full_text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
-        input_ids = mx.array(tokenizer.encode(full_text))[None, :]
-
-        # Forward pass to get logits
-        logits = model(input_ids)
-        # Shift tokens for autoregressive loss
-        shift_logits = logits[:, :-1, :]
-        shift_labels = input_ids[:, 1:]
-
-        # Cross entropy loss
-        ce = nn.losses.cross_entropy(shift_logits, shift_labels)
-        loss_val = ce.sum().item()
-        n_toks = shift_labels.size
-
-        total_loss += loss_val
-        total_tokens += n_toks
-
-    avg_loss = total_loss / max(1, total_tokens)
-    ppl = math.exp(avg_loss) if avg_loss < 20 else float("inf")
-    return avg_loss, ppl
-
-
-def run_deterministic_eval(
-    model, tokenizer, test_samples: List[Dict[str, Any]], max_tokens: int = 150
-) -> Dict[str, Any]:
-    """
-    Evaluates pure JSON rate, schema validity, tool selection, and parameter accuracy.
-    """
-    pure_json_count = 0
-    valid_json_count = 0
-    schema_valid_count = 0
-    correct_tool_count = 0
-    exact_match_count = 0
-    total_output_tokens = 0
-    results = []
-
-    for item in tqdm(test_samples, desc="Evaluating test set"):
-        prompt_text = item["prompt"]
-        expected_json = json.loads(item["completion"])
-        expected_tool = expected_json.get("tool")
-        expected_params = expected_json.get("parameters", {})
-
-        # Build prompt using chat template with generation prompt
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt_text},
-        ]
-        formatted_prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-
-        # Generate response
-        start_time = time.time()
-        raw_output = mlx_lm.generate(
-            model,
-            tokenizer,
-            prompt=formatted_prompt,
-            max_tokens=max_tokens,
-            verbose=False,
+    for sample in samples:
+        tokens, offset = dataset.process(sample)
+        if offset < 1 or offset >= len(tokens):
+            raise ValueError(f"No assistant tokens in sample {sample.get('id')}")
+        loss, count = default_loss(
+            model, mx.array([tokens]), mx.array([[offset, len(tokens) - 1]]),
         )
-        gen_time = time.time() - start_time
-        out_tokens = len(tokenizer.encode(raw_output))
-        total_output_tokens += out_tokens
-
-        # Validate structure
-        val_res = parse_and_validate(raw_output)
-
-        if val_res["is_pure_json"]:
-            pure_json_count += 1
-        if val_res["is_valid_json"]:
-            valid_json_count += 1
-        if val_res["is_schema_valid"]:
-            schema_valid_count += 1
-
-        tool_match = False
-        param_exact = False
-        if val_res["parsed_data"]:
-            parsed_tool = val_res["parsed_data"].get("tool")
-            parsed_params = val_res["parsed_data"].get("parameters", {})
-            if parsed_tool == expected_tool:
-                tool_match = True
-                correct_tool_count += 1
-                # Check parameter equivalence
-                if parsed_params == expected_params:
-                    param_exact = True
-                    exact_match_count += 1
-
-        results.append({
-            "prompt": prompt_text,
-            "raw_output": raw_output,
-            "output_tokens": out_tokens,
-            "latency_seconds": round(gen_time, 3),
-            "is_pure_json": val_res["is_pure_json"],
-            "is_schema_valid": val_res["is_schema_valid"],
-            "tool_match": tool_match,
-            "param_exact": param_exact,
-            "error": val_res["error"],
-        })
-
-    n = len(test_samples)
+        count = int(count.item())
+        total_loss += float(loss.item()) * count
+        total_tokens += count
+    average = total_loss / total_tokens
+    if not math.isfinite(average):
+        raise ValueError("Non-finite assistant loss")
     return {
-        "num_samples": n,
-        "pure_json_rate": pure_json_count / n,
-        "valid_json_rate": valid_json_count / n,
-        "schema_valid_rate": schema_valid_count / n,
-        "tool_accuracy": correct_tool_count / n,
-        "exact_match_rate": exact_match_count / n,
-        "avg_output_tokens": total_output_tokens / n,
-        "sample_results": results,
+        "loss": average, "perplexity": math.exp(average) if average < 709 else None,
+        "loss_scope": "assistant_tokens", "loss_tokens": total_tokens,
     }
+
+
+def run_deterministic_eval(model, tokenizer, test_samples, max_tokens=150):
+    if not test_samples:
+        raise ValueError("Cannot evaluate an empty dataset")
+    positive_int(max_tokens)
+    results = []
+    for item in tqdm(test_samples, desc="Evaluating test set"):
+        expected = item["expected"]
+        generated = generate_response(model, tokenizer, item["messages"][:-1], max_tokens)
+        parsed = parse_and_validate(generated["raw_output"])
+        actual = parsed["parsed_data"]
+        tool_match = isinstance(actual, dict) and actual.get("tool") == expected["tool"]
+        exact = parsed["is_pure_json"] and parsed["is_schema_valid"] and actual == expected
+        normalized_match = parsed["is_schema_valid"] and parsed["normalized_data"] == item.get("normalized_expected", expected)
+        if not parsed["is_valid_json"]:
+            category = "json"
+        elif not parsed["is_schema_valid"]:
+            category = "schema"
+        elif not parsed["is_pure_json"]:
+            category = "format"
+        elif not tool_match:
+            category = "tool"
+        elif not exact:
+            category = "parameters"
+        else:
+            category = None
+        results.append({
+            "id": item["id"], "prompt": item["prompt"], "messages": item["messages"][:-1],
+            "expected": expected, **generated, **parsed,
+            "tool_match": tool_match, "param_exact": exact,
+            "normalized_match": normalized_match, "error_category": category,
+        })
+    n = len(results)
+    metrics = {"num_samples": n, "sample_results": results}
+    for metric, flag in {
+        "pure_json_rate": "is_pure_json", "valid_json_rate": "is_valid_json",
+        "schema_valid_rate": "is_schema_valid", "tool_accuracy": "tool_match",
+        "exact_match_rate": "param_exact", "normalized_match_rate": "normalized_match",
+    }.items():
+        metrics[metric] = sum(r[flag] for r in results) / n
+    metrics["avg_output_tokens"] = sum(r["output_tokens"] for r in results) / n
+    return metrics
 
 
 def plot_eval_metrics(base_metrics: Dict[str, Any], lora_metrics: Dict[str, Any], output_path: Path):
@@ -208,124 +144,66 @@ def plot_eval_metrics(base_metrics: Dict[str, Any], lora_metrics: Dict[str, Any]
 
 
 def run_comprehensive_evaluation(
-    model_name: str = None,
-    adapter_path: str = None,
-    test_jsonl: str = "data/test.jsonl",
-    raw_test_file: str = "data/raw_test_samples.json",
-    num_eval_samples: int = 30,
-    *,
-    preset: str = None,
-    output_dir: str = None,
+    model_name=None, adapter_path=None, test_jsonl="data/test.jsonl", num_eval_samples=30,
+    *, preset=None, output_dir=None, fused_path=None, max_tokens=150,
 ):
-    model_name, adapter_path, artifacts_dir = resolve_model_paths(preset, model_name, adapter_path, output_dir)
-    console.print(
-        Panel.fit(
-            "[bold green]Running Comprehensive 4-Pillar Evaluation Suite[/bold green]\n"
-            f"Base Model: [yellow]{model_name}[/yellow] | Adapter: [yellow]{adapter_path}[/yellow]",
-            border_style="green",
-        )
+    positive_int(num_eval_samples)
+    positive_int(max_tokens)
+    samples = load_samples(test_jsonl, num_eval_samples)
+    model_name, adapter_path, root = resolve_model_paths(preset, model_name, adapter_path, output_dir)
+    adapter_files = adapter_identity(adapter_path)
+    model_source, source_identity = resolve_adapter_source(model_name, adapter_path)
+    run_dir, manifest = new_run(
+        root, "evaluation", model=model_name, model_source=source_identity,
+        adapter=adapter_files, dataset=file_identity(test_jsonl),
+        sample_ids=[s["id"] for s in samples],
+        generation={"temperature": 0.0, "max_tokens": max_tokens},
     )
-
-    with open(raw_test_file, "r", encoding="utf-8") as f:
-        test_samples = json.load(f)[:num_eval_samples]
-
-    # --- Pillar 1 & 2: Evaluate BASE MODEL ---
-    console.print("\n[bold yellow]Phase 1/2: Evaluating Base Model (no adapter)...[/bold yellow]")
-    base_model, tokenizer = mlx_lm.load(model_name)
-    base_loss, base_ppl = compute_perplexity(base_model, tokenizer, Path(test_jsonl), max_samples=num_eval_samples)
-    base_metrics = run_deterministic_eval(base_model, tokenizer, test_samples)
-    base_metrics["loss"] = base_loss
-    base_metrics["perplexity"] = base_ppl
-
-    # Clear memory
-    del base_model
-    mx.clear_cache()
-
-    # --- Pillar 1 & 2: Evaluate LoRA MODEL ---
-    console.print("\n[bold cyan]Phase 2/2: Evaluating Fine-Tuned Model (with LoRA adapter)...[/bold cyan]")
-    lora_model, tokenizer = mlx_lm.load(model_name, adapter_path=adapter_path)
-    lora_loss, lora_ppl = compute_perplexity(lora_model, tokenizer, Path(test_jsonl), max_samples=num_eval_samples)
-    lora_metrics = run_deterministic_eval(lora_model, tokenizer, test_samples)
-    lora_metrics["loss"] = lora_loss
-    lora_metrics["perplexity"] = lora_ppl
-
-    # --- Pillar 3: Side-by-Side Comparison ---
-    comparison_table = Table(title="Pillar 3: Qualitative Side-by-Side Review", show_header=True, header_style="bold blue")
-    comparison_table.add_column("User Operational Prompt", style="dim", width=35)
-    comparison_table.add_column("Base Model Output", style="red", width=35)
-    comparison_table.add_column("LoRA Model Output", style="green", width=35)
-
-    for i in range(min(4, len(test_samples))):
-        prompt_preview = test_samples[i]["prompt"]
-        base_out = base_metrics["sample_results"][i]["raw_output"]
-        lora_out = lora_metrics["sample_results"][i]["raw_output"]
-        comparison_table.add_row(prompt_preview, base_out[:120] + ("..." if len(base_out) > 120 else ""), lora_out[:120] + ("..." if len(lora_out) > 120 else ""))
-
-    console.print(comparison_table)
-
-    # --- Summary Metrics Table ---
-    summary_table = Table(title="Evaluation Scorecard: Base vs. LoRA", show_header=True, header_style="bold magenta")
-    summary_table.add_column("Evaluation Metric", style="cyan")
-    summary_table.add_column("Base Model", justify="right")
-    summary_table.add_column("LoRA Fine-Tuned", justify="right")
-    summary_table.add_column("Delta / Impact", justify="right")
-
-    def diff_pct(base, lora):
-        d = (lora - base) * 100
-        sign = "+" if d >= 0 else ""
-        return f"{sign}{d:.1f}%"
-
-    summary_table.add_row("Holdout Test Loss", f"{base_loss:.4f}", f"{lora_loss:.4f}", f"{(lora_loss - base_loss):.4f}")
-    summary_table.add_row("Holdout Perplexity", f"{base_ppl:.2f}", f"{lora_ppl:.2f}", f"{(lora_ppl - base_ppl):.2f}")
-    summary_table.add_row("Pure JSON Rate (No chatter/markdown)", f"{base_metrics['pure_json_rate']*100:.1f}%", f"{lora_metrics['pure_json_rate']*100:.1f}%", diff_pct(base_metrics['pure_json_rate'], lora_metrics['pure_json_rate']))
-    summary_table.add_row("Pydantic Schema Validity", f"{base_metrics['schema_valid_rate']*100:.1f}%", f"{lora_metrics['schema_valid_rate']*100:.1f}%", diff_pct(base_metrics['schema_valid_rate'], lora_metrics['schema_valid_rate']))
-    summary_table.add_row("Tool Selection Accuracy", f"{base_metrics['tool_accuracy']*100:.1f}%", f"{lora_metrics['tool_accuracy']*100:.1f}%", diff_pct(base_metrics['tool_accuracy'], lora_metrics['tool_accuracy']))
-    summary_table.add_row("Parameter Exact Match", f"{base_metrics['exact_match_rate']*100:.1f}%", f"{lora_metrics['exact_match_rate']*100:.1f}%", diff_pct(base_metrics['exact_match_rate'], lora_metrics['exact_match_rate']))
-    summary_table.add_row("Avg Output Tokens (Efficiency)", f"{base_metrics['avg_output_tokens']:.1f}", f"{lora_metrics['avg_output_tokens']:.1f}", f"{lora_metrics['avg_output_tokens'] - base_metrics['avg_output_tokens']:.1f} toks")
-
-    console.print(summary_table)
-
-    # Save artifact files
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
-
-    plot_eval_metrics(base_metrics, lora_metrics, artifacts_dir / "eval_comparison.png")
-
-    report = {
-        "model": model_name,
-        "adapter": adapter_path,
-        "base_metrics": {k: v for k, v in base_metrics.items() if k != "sample_results"},
-        "lora_metrics": {k: v for k, v in lora_metrics.items() if k != "sample_results"},
-        "side_by_side_samples": [
-            {
-                "prompt": test_samples[i]["prompt"],
-                "base_output": base_metrics["sample_results"][i]["raw_output"],
-                "lora_output": lora_metrics["sample_results"][i]["raw_output"],
-            }
-            for i in range(min(10, len(test_samples)))
-        ],
-    }
-
-    with open(artifacts_dir / "eval_results.json", "w") as f:
-        json.dump(report, f, indent=2)
-
-    console.print(f"[green]✓[/green] Full evaluation report saved to [bold]{artifacts_dir / 'eval_results.json'}[/bold]")
+    variants = [("base", model_source, None), ("lora", model_source, adapter_path)]
+    if fused_path:
+        fused_source, fused_identity = resolve_source(latest_path(fused_path))
+        manifest["fused_model"] = fused_identity
+        variants.append(("fused", fused_source, None))
+    report = {"model": model_name, "adapter": adapter_path, "run_dir": str(run_dir), "run_id": manifest["run_id"]}
+    for name, source, adapter in variants:
+        console.print(f"Evaluating {name} model...")
+        model, tokenizer = mlx_lm.load(source, **({"adapter_path": adapter} if adapter else {}))
+        try:
+            intrinsic = compute_perplexity(model, tokenizer, samples)
+            metrics = run_deterministic_eval(model, tokenizer, samples, max_tokens)
+            report[f"{name}_metrics"] = {**metrics, **intrinsic}
+        finally:
+            del model
+            mx.clear_cache()
+    plot_eval_metrics(report["base_metrics"], report["lora_metrics"], run_dir / "eval_comparison.png")
+    table = Table(title="Evaluation scorecard (assistant-only loss; strict exact match)")
+    table.add_column("Metric")
+    for name, _, _ in variants:
+        table.add_column(name)
+    for key in ("loss", "perplexity", "pure_json_rate", "schema_valid_rate", "tool_accuracy", "exact_match_rate", "normalized_match_rate"):
+        table.add_row(key, *(str(report[f"{name}_metrics"][key]) for name, _, _ in variants))
+    console.print(table)
+    report["manifest"] = {**manifest, "status": "complete"}
+    write_json(run_dir / "eval_results.json", report)
+    finish_run(root, run_dir, manifest)
+    console.print(f"Saved all sample results to {run_dir / 'eval_results.json'}")
     return report
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Evaluate MLX model against base model")
+    parser = argparse.ArgumentParser(description="Evaluate base, LoRA, and optionally fused models")
     selection = parser.add_mutually_exclusive_group()
     add_preset_argument(selection)
-    selection.add_argument("--model", help="Base model identifier")
-    parser.add_argument("--adapter", help="LoRA adapter directory")
-    parser.add_argument("--output-dir", help="Directory for evaluation report and plot")
-    parser.add_argument("--samples", type=int, default=30, help="Number of test samples to evaluate")
+    selection.add_argument("--model")
+    parser.add_argument("--adapter")
+    parser.add_argument("--output-dir")
+    parser.add_argument("--test-file", default="data/test.jsonl")
+    parser.add_argument("--fused", help="Also evaluate this fused model directory")
+    parser.add_argument("--samples", type=positive_int, default=30)
+    parser.add_argument("--max-tokens", type=positive_int, default=150)
     args = parser.parse_args()
-
     run_comprehensive_evaluation(
-        model_name=args.model,
-        adapter_path=args.adapter,
-        num_eval_samples=args.samples,
-        preset=args.preset,
-        output_dir=args.output_dir,
+        model_name=args.model, adapter_path=args.adapter, test_jsonl=args.test_file,
+        num_eval_samples=args.samples, preset=args.preset, output_dir=args.output_dir,
+        fused_path=args.fused, max_tokens=args.max_tokens,
     )

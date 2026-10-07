@@ -1,11 +1,15 @@
 [project]
 name = "mlx-model-training-evals"
 version = "0.1.0"
-description = "Add your description here"
+description = "Reproducible MLX LoRA training and strict tool-call evaluation on Apple Silicon"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "datasets>=5.1.0",
+    "huggingface-hub>=1.0",
+    "numpy>=2.0",
+    "pyyaml>=6.0",
+    "nbformat>=5.10",
     "ipykernel>=7.4.0",
     "jsonschema>=4.26.0",
     "jupyterlab>=4.6.4",

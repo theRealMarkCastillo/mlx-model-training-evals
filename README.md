@@ -1,327 +1,181 @@
-# 🚀 Modern Local LLM Fine-Tuning & Comprehensive Evals with Apple MLX
+# Local LoRA training and tool-call evaluation with Apple MLX
 
-A production-grade tutorial and reference implementation for **fine-tuning local language models with LoRA/QLoRA** and conducting **multi-pillar evaluations** natively on Apple Silicon using Apple's [MLX](https://github.com/ml-explore/mlx) framework.
+A tutorial and reference implementation for Qwen2.5 LoRA/QLoRA training on Apple Silicon. The task converts operational requests into JSON tool calls for deployment, pod restart, rollback, and cluster scaling.
 
-**GitHub repository:** [theRealMarkCastillo/mlx-model-training-evals](https://github.com/theRealMarkCastillo/mlx-model-training-evals)
+Repository: [theRealMarkCastillo/mlx-model-training-evals](https://github.com/theRealMarkCastillo/mlx-model-training-evals).
 
----
+**Result migration:** the JSON reports and chart originally checked into the top level of `artifacts/` are historical outputs from the earlier dataset and evaluator. Their accuracy and performance figures are not validated results for the corrected pipeline. Existing weights must be retrained on the regenerated data before making new quality claims. No replacement accuracy or fused-speed claim is published here.
 
-## 📑 Table of Contents
-1. [Why Apple Silicon & MLX?](#-why-apple-silicon--mlx)
-2. [Tutorial Architecture & Scenario](#-tutorial-architecture--scenario)
-3. [The 4-Pillar Comprehensive Evaluation Suite](#-the-4-pillar-comprehensive-evaluation-suite)
-4. [Project Structure](#-project-structure)
-5. [Quickstart (with `uv`)](#-quickstart-with-uv)
-6. [Module 1: Dataset Engineering & Prompt Masking](#-module-1-dataset-engineering--prompt-masking)
-7. [Module 2: LoRA & QLoRA Fine-Tuning](#-module-2-lora--qlora-fine-tuning)
-8. [Module 3: Running the 4-Pillar Evaluation Suite](#-module-3-running-the-4-pillar-evaluation-suite)
-9. [Module 4: Systems Benchmarking & Model Fusion](#-module-4-systems-benchmarking--model-fusion)
-10. [Serving Locally (OpenAI-Compatible API)](#-serving-locally-openai-compatible-api)
+## Quickstart
 
----
+Use an Apple Silicon Mac with Metal support and Python 3.12 or later:
 
-## ⚡ Why Apple Silicon & MLX?
-
-Traditional PyTorch training relies on discrete GPU memory (VRAM), requiring constant data transfers over PCIe buses. In contrast, Apple Silicon features **Unified Memory Architecture (UMA)**:
-- **Zero-Copy Sharing**: The CPU and Metal GPU share the exact same physical memory pool.
-- **Massive Local Context**: Macs with 36 GB, 64 GB, 96 GB, or 128+ GB of unified memory can fine-tune 7B, 14B, or 32B parameter models that would otherwise require multiple server-grade GPUs ($10,000+).
-- **Native Metal Acceleration**: MLX optimizes compute kernels directly for Apple Metal, avoiding CUDA translation layers.
-
----
-
-## 🎯 Tutorial Architecture & Scenario
-
-### The Problem: Reliable Tool Calling & Structured JSON
-Base instruction models frequently fail when required to output strict JSON:
-1. They prefix responses with conversational filler (*"Sure, here is your command..."*).
-2. They wrap outputs in Markdown backticks (`` ```json ... ``` ``).
-3. They hallucinate parameters or enum values (e.g. `"prod"` instead of `"production"`).
-
-### The Solution: Targeted LoRA Fine-Tuning
-By fine-tuning **Qwen 2.5 3B Instruct** with LoRA:
-- **Model**: `mlx-community/Qwen2.5-3B-Instruct-4bit` (QLoRA)
-- **Trainable Parameters**: **6.65 Million** out of 3.08 Billion (**0.21%**)
-- **Adapter Weight Footprint**: **~25 MB** (vs ~1.8 GB base model)
-- **Result**: 100% pure JSON without markdown wrappers, lower test perplexity, and +20% jump in parameter exact match.
-
----
-
-## 📊 The 4-Pillar Comprehensive Evaluation Suite
-
-Most fine-tuning tutorials stop at *"It printed some text, look, it works!"*. This tutorial implements a **4-pillar evaluation framework**:
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   MLX Multi-Pillar Evaluation Suite                    │
-├────────────────────┬───────────────────────────────────────────────────┤
-│ 1. Intrinsic       │ • Cross-Entropy Loss on Holdout Test Split        │
-│    Metrics         │ • Perplexity ($e^{\text{loss}}$) Base vs. LoRA    │
-├────────────────────┼───────────────────────────────────────────────────┤
-│ 2. Deterministic   │ • Pure JSON Output Rate (no markdown/chatter)     │
-│    Validation      │ • Pydantic v2 Schema Compliance Rate (%)          │
-│                    │ • Tool Selection Accuracy                         │
-│                    │ • Parameter Field-Level Exact Match Rate          │
-├────────────────────┼───────────────────────────────────────────────────┤
-│ 3. Qualitative     │ • Side-by-side prompt output diffs                │
-│    Analysis        │ • Error taxonomy (formatting vs logic errors)     │
-├────────────────────┼───────────────────────────────────────────────────┤
-│ 4. Systems &       │ • Peak Apple Metal Unified Memory (MB)            │
-│    Performance     │ • Generation Throughput (tokens/second)           │
-│                    │ • Adapter Fusion (`mlx_lm.fuse`) footprint        │
-└────────────────────┴───────────────────────────────────────────────────┘
-```
-
----
-
-## 📂 Project Structure
-
-```text
-mlx-model-training-evals/
-├── pyproject.toml              # Modern uv / PEP 621 package config
-├── README.md                   # Complete tutorial guide & documentation
-├── tutorial.ipynb              # Fully runnable interactive Jupyter Notebook
-├── config/
-│   └── lora_config.yaml        # Declarative MLX LoRA hyperparameters
-├── data/
-│   ├── prepare_dataset.py      # Dataset generator (train / valid / test)
-│   ├── train.jsonl             # 200 instruction training samples
-│   ├── valid.jsonl             # 40 validation samples
-│   ├── test.jsonl              # 60 holdout evaluation samples
-│   └── raw_test_samples.json   # Raw prompts & ground-truth for inspection
-├── src/
-│   ├── __init__.py
-│   ├── schema.py               # Pydantic v2 tool models & output validator
-│   ├── train.py                # Python training runner with memory & loss tracking
-│   ├── evaluate.py             # 4-pillar evaluation runner & chart generator
-│   └── benchmark.py            # Apple Silicon throughput & memory benchmark
-└── artifacts/
-    ├── adapters/               # Trained LoRA weights (adapters.safetensors)
-    ├── fused_model/            # Standalone deployable model (post-fusion)
-    ├── eval_comparison.png     # Evaluation scorecard visual comparison
-    ├── eval_results.json       # Detailed benchmark metrics
-    └── benchmark_results.json  # Tok/s and memory profiling data
-```
-
----
-
-## 🚀 Quickstart (with `uv`)
-
-This project uses [`uv`](https://github.com/astral-sh/uv) for fast Python environment management.
-
-### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/theRealMarkCastillo/mlx-model-training-evals.git
-cd mlx-model-training-evals
-
-# uv automatically creates .venv and installs locked dependencies in seconds
-uv sync
+uv sync --locked
+uv run python main.py prepare
+uv run python main.py train --preset 3b --iters 80
+uv run python main.py eval --preset 3b --samples 60
+uv run python main.py benchmark --preset 3b
 ```
 
-### 2. Generate the Dataset
-```bash
-uv run python data/prepare_dataset.py
-```
+Downloads occur on first model use. Training and inference need memory beyond quantized model weights. Start with a short run and inspect measured peak memory before attempting a larger preset.
 
-### 3. Launch the Interactive Notebook
+The interactive equivalent is:
+
 ```bash
 uv run jupyter lab tutorial.ipynb
 ```
 
-Or run everything from the terminal using the modular CLI scripts described below.
+The notebook uses the same Python modules. Change `PRESET` in its training cell and rerun the following cells. It starts a new training run explicitly; it does not silently reuse historical adapters.
 
-### Trying Larger Qwen Models
-
-Choose a **Qwen2.5 Instruct 4-bit** preset across the entire workflow:
+## Model presets
 
 ```bash
 uv run python main.py models
-
-# Try the base model interactively through the local API before fine-tuning
 uv run python main.py serve --preset 14b --base --port 8080
-
-# Short training run to measure memory and runtime, then evaluate
 uv run python main.py train --preset 14b --iters 10
-uv run python main.py eval --preset 14b --samples 10
-uv run python main.py benchmark --preset 14b
-
-# Fuse and serve this model's trained adapter
-uv run python main.py fuse --preset 14b
-uv run python main.py serve --preset 14b --port 8080
+uv run python main.py eval --preset 14b --samples 60
 ```
 
-| Preset | Model | Training batch | Adapted layers | Gradient checkpointing |
-| :--- | :--- | ---: | ---: | :--- |
-| `3b` (default) | [Qwen2.5-3B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-3B-Instruct-4bit) | 4 | 16 | Off |
-| `7b` | [Qwen2.5-7B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-7B-Instruct-4bit) | 2 | 16 | On |
-| `14b` | [Qwen2.5-14B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-14B-Instruct-4bit) | 1 | 16 | On |
-| `32b` | [Qwen2.5-32B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-32B-Instruct-4bit) | 1 | 8 | On |
-| `72b` | [Qwen2.5-72B-Instruct-4bit](https://huggingface.co/mlx-community/Qwen2.5-72B-Instruct-4bit) | 1 | 4 | On |
+| Preset | Qwen2.5 Instruct 4-bit model size | Batch | Adapted layers | Gradient checkpointing |
+| --- | --- | ---: | ---: | --- |
+| `3b` | 3B | 4 | 16 | Off |
+| `7b` | 7B | 2 | 16 | On |
+| `14b` | 14B | 1 | 16 | On |
+| `32b` | 32B | 1 | 8 | On |
+| `72b` | 72B | 1 | 4 | On |
 
-These are starting configurations, **not measured memory-fit guarantees**. Start with 7B or
-14B, inspect `peak_memory_mb` in the training history, and move up as memory and runtime
-allow. Training needs additional memory for activations and optimizer state beyond the
-quantized weights. The 72B preset is an exploratory option for high-memory machines.
-Smaller batches and fewer adapted layers change the training budget: equal iteration
-counts are not equal training exposure across presets. Keep the same holdout samples
-when comparing results. The scorecards below describe the original 3B run only.
+These are starting configurations, not measured memory-fit guarantees. Equal iteration counts do not mean equal training exposure when batch sizes differ. The 72B preset is exploratory and requires a high-memory machine.
 
-Larger-model adapters, histories, plots, evaluation reports, benchmark reports, and fused
-models live under `artifacts/qwen2.5-<size>/`, so they do not overwrite the 3B results in
-`artifacts/`. Repeating a run of the same preset reuses its output paths. Downloads happen
-on first use through Hugging Face. Each model needs its own trained adapter before
-running `eval`, `benchmark`, or `fuse`.
+Preset configs are in `config/`. The scripts accept `--preset` directly. Training accepts `--config` instead of `--preset`; a missing or invalid config fails before loading weights. Configs must describe local chat JSONL splits, LoRA training, and prompt masking.
 
-The scripts also accept `--preset` directly (for example,
-`uv run python src/train.py --preset 32b --iters 10`). Edit the corresponding
-`config/qwen2.5-<size>.yaml` to tune batch size, sequence length, or LoRA layers; these
-files also work with the native MLX CLI. `--config` selects a custom training config
-instead of a preset. `--output-dir` overrides the report/plot directory; training adapter
-locations remain controlled by the YAML `adapter_path`.
+## Data and schema contract
 
-In `tutorial.ipynb`, change `PRESET = "3b"` in the training cell and rerun that cell and
-the subsequent evaluation and benchmark cells to use the same model throughout.
+`src/schema.py` defines strict parameter models and a discriminated union binding each tool to its parameters. The system prompt is generated from those definitions. Unknown fields, incorrect JSON types, duplicate keys, and nonstandard numeric constants are rejected. Defaults may be filled in a separate normalized representation; raw parsed output is preserved.
 
----
+`data/prepare_dataset.py` produces balanced splits with a fixed seed:
 
-## 🛠️ Module 1: Dataset Engineering & Prompt Masking
+- 200 training records, using template families 0 and 1.
+- 40 validation records, using template family 2.
+- 60 test records, using template family 3.
 
-### The Chat Schema
-MLX uses the standard ChatML / OpenAI JSONL format:
+Prompts are unique within and across all splits. Every target notification channel appears in its request. Restart reasons copy the request's exact reason phrase instead of relying on an undocumented canonical vocabulary. Other omitted optional values follow the documented schema defaults.
+
+The canonical record format is:
+
 ```json
-{
-  "messages": [
-    {"role": "system", "content": "You are an automated Cloud Infrastructure Action Dispatcher..."},
-    {"role": "user", "content": "Deploy auth-api version v2.1.0 to staging with 3 replicas."},
-    {"role": "assistant", "content": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v2.1.0\",\"environment\":\"staging\",\"replicas\":3,\"notify_channels\":[]}}"}
-  ]
-}
+{"messages":[{"role":"system","content":"..."},{"role":"user","content":"..."},{"role":"assistant","content":"{\"tool\":\"...\",\"parameters\":{...}}"}]}
 ```
 
-### Why Prompt Masking Matters
-In [`config/lora_config.yaml`](config/lora_config.yaml):
-```yaml
-mask_prompt: true
-```
-Without prompt masking, standard language model training computes cross-entropy loss over every token in the sequence (including the 300+ token system prompt). By setting `mask_prompt: true`, MLX zeroes out the loss for all tokens preceding the assistant's turn, ensuring that **100% of gradient updates optimize the model's structured response**.
+Training validation, perplexity, and generation evaluation consume the same chat records. `raw_test_samples.json` is a generated inspection export; the evaluator does not read it.
 
----
+The holdout tests unseen wording within this synthetic task. It does not establish reliability on arbitrary operational requests, ambiguous instructions, unsupported tools, or production traffic.
 
-## 🏋️ Module 2: LoRA & QLoRA Fine-Tuning
-
-### The Hyperparameters
-In [`config/lora_config.yaml`](config/lora_config.yaml):
-```yaml
-model: "mlx-community/Qwen2.5-3B-Instruct-4bit"
-data: "data"
-fine_tune_type: "lora"
-lora_parameters:
-  rank: 8          # Dimension of decomposition matrices
-  scale: 16.0      # Scaling factor (alpha)
-  dropout: 0.05
-learning_rate: 1.0e-4
-batch_size: 4
-iters: 80
-num_layers: 16     # Number of attention/MLP layers to adapt
-optimizer: "adamw"
-adapter_path: "artifacts/adapters"
-```
-
-### Running Training
-You can run training either via the Python script:
-```bash
-uv run python src/train.py --iters 80
-```
-Or directly via the MLX CLI:
-```bash
-uv run python -m mlx_lm lora -c config/lora_config.yaml --train --iters 80
-```
-
-### Training Dynamics Observed
-On an Apple M2 Max:
-- **Starting Validation Loss**: `1.381`
-- **Final Validation Loss**: `0.016` (after 80 iterations)
-- **Peak Metal Memory**: ~10.2 GB during backpropagation
-- **Adapter Weight File**: `25.4 MB`
-
----
-
-## 📈 Module 3: Running the 4-Pillar Evaluation Suite
-
-Run the evaluation script across the holdout test set:
-```bash
-uv run python src/evaluate.py --samples 25
-```
-
-### Benchmark Results Scorecard
-
-| Evaluation Metric | Base Model (`Qwen2.5-3B-4bit`) | LoRA Fine-Tuned Model | Delta / Impact |
-| :--- | :---: | :---: | :---: |
-| **Holdout Test Loss** | `3.0637` | **`2.5737`** | **-0.4900 (Better fit)** |
-| **Holdout Test Perplexity** | `21.41` | **`13.11`** | **-8.29 PPL (Stronger confidence)** |
-| **Pure JSON Rate** | 100.0% | 100.0% | Stable |
-| **Pydantic Schema Validity** | 100.0% | 100.0% | Stable |
-| **Tool Selection Accuracy** | 100.0% | 100.0% | 100% correct routing |
-| **Parameter Exact Match** | `46.7%` | **`66.7%`** | **+20.0% accuracy** |
-
-The evaluation outputs an automated comparison plot at `artifacts/eval_comparison.png` and full JSON telemetry at `artifacts/eval_results.json`.
-
----
-
-## 🔬 Module 4: Systems Benchmarking & Model Fusion
-
-### Profiling Inference on Apple Silicon Metal
-Run the profiler:
-```bash
-uv run python src/benchmark.py
-```
-
-| Metric | Base Model | LoRA Adapter (Dynamic) | Fused Model |
-| :--- | :---: | :---: | :---: |
-| **Generation Speed** | ~141 tok/s | ~70 tok/s | **~141 tok/s** |
-| **Peak Metal Memory** | ~1,755 MB | ~1,773 MB | **~1,755 MB** |
-| **Runtime Overhead** | 0% | Adapter calculation branch | **Zero overhead** |
-
-### Weight Fusion (`mlx_lm.fuse`)
-Dynamic LoRA adapters introduce a minor latency overhead because the model must branch and compute $W_{\text{base}}x + \frac{\alpha}{r}BAx$.
-
-Using `mlx_lm.fuse`, you can bake the adapter weights directly into the base model weights:
-```bash
-uv run python -m mlx_lm.fuse \
-  --model mlx-community/Qwen2.5-3B-Instruct-4bit \
-  --adapter-path artifacts/adapters \
-  --save-path artifacts/fused_model
-```
-
-The resulting `artifacts/fused_model/` contains standalone `model.safetensors` that run at full native speed without loading adapter files!
-
----
-
-## 🌐 Serving Locally (OpenAI-Compatible API)
-
-You can serve your fine-tuned or fused model locally with Apple Silicon acceleration:
+## Training and experiment identity
 
 ```bash
-uv run python -m mlx_lm.server --model artifacts/fused_model --port 8080
+uv run python src/train.py --preset 3b --iters 80
+uv run python src/train.py --config config/lora_config.yaml --iters 10 --output-dir /tmp/mlx-reports
 ```
 
-Test it with `curl`:
+The runner uses MLX-LM's callback-preserving `train_model` entry point. It records train loss, validation loss, throughput, timing, and Metal memory, and writes a loss curve. A run without expected loss telemetry fails rather than publishing an empty success report.
+
+`mask_prompt: true` trains on assistant response tokens. The evaluator uses the same chat-template offsets and shifted-token loss mask, without truncating the holdout records. Training's `max_seq_length` still controls its sequence limit; keep it large enough for complete prompts and responses.
+
+MLX uses `scale` as the direct multiplier for the LoRA update:
+
+```text
+W_effective = W_base + scale * B A
+```
+
+For `rank: 8, scale: 16.0`, the multiplier is 16. It is not an `alpha` value that MLX divides by rank. Some other LoRA implementations express their multiplier as `alpha / rank`.
+
+Every run gets a new directory and manifest. The 3B report root is `artifacts/`; larger presets use `artifacts/qwen2.5-<size>/`.
+
+```text
+artifacts/
+  runs/training-<id>/
+    manifest.json
+    adapters/adapter_config.json
+    adapters/adapters.safetensors
+    training_history.json
+    loss_curve.png
+  runs/evaluation-<id>/
+    manifest.json
+    eval_results.json
+    eval_comparison.png
+  runs/benchmark-<id>/
+    manifest.json
+    benchmark_results.json
+  latest_training.json
+  latest_evaluation.json
+  latest_benchmark.json
+  adapters/latest.json
+```
+
+Manifests record dependency versions, source hashes, configuration, dataset hashes, model snapshot revision (or local model file hashes), and adapter hashes. Evaluation and fusion reuse the base snapshot recorded by the adapter's training run. Completed runs retain their own weights and reports; small latest pointers select the most recent successful run.
+
+`--output-dir` chooses the report root. Training weights live inside the training run, and the YAML's `adapter_path` becomes the directory containing its `latest.json` pointer. Evaluation, fusion, and serving resolve these pointers automatically. An explicit `--adapter` can select an older run's actual adapter directory. External/native MLX commands require that actual directory; they do not understand this project's pointer files.
+
+## Quality evaluation
+
 ```bash
-curl http://localhost:8080/v1/chat/completions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "messages": [
-      {"role": "system", "content": "You are an automated Cloud Infrastructure Action Dispatcher..."},
-      {"role": "user", "content": "Restart pod postgres-primary-0 in us-east-1 immediately because of OOM error."}
-    ],
-    "temperature": 0.0
-  }'
+uv run python main.py eval --preset 3b --samples 60
+uv run python src/evaluate.py --preset 3b --test-file data/test.jsonl --samples 60 --max-tokens 150
 ```
 
----
+The report contains:
 
-## 🎓 Summary of Key Learnings
+| Metric | Definition |
+| --- | --- |
+| Assistant loss / perplexity | Token-weighted cross entropy over the reference assistant response, using the training mask |
+| Pure JSON rate | Entire response is a JSON object with no surrounding chatter |
+| Schema validity | Recovered JSON satisfies the strict envelope and matching tool parameter schema |
+| Tool accuracy | Decoded tool name matches the reference, independently of parameter validity |
+| Exact match | Pure JSON, valid schema, and raw decoded object equals the reference; no added defaults or discarded fields |
+| Normalized match | Valid schema and explicitly default-filled object equals the reference; reported separately and can include wrapped JSON |
 
-1. **Prompt Masking is Crucial**: Always set `mask_prompt: true` during instruction fine-tuning to prevent the model from wasting gradient updates on input instructions.
-2. **Unified Memory Unlocks Local Workflows**: 96 GB of unified memory on Apple Silicon allows running multiple models and fine-tuning without GPU memory thrashing.
-3. **Comprehensive Evals Beat "Eyeball Tests"**: Combining intrinsic metrics (Perplexity) with deterministic validation (Pydantic parsing) and hardware profiling provides a trustworthy signal of model readiness.
-4. **Fuse Adapters Before Deployment**: Use `mlx_lm.fuse` to restore 100% of base model inference speed for production serving.
+Object key order and JSON whitespace do not affect exact match. Array order and parameter string contents do. A missing default can pass schema validation and normalized match while failing exact match. Malformed model outputs count as failures without aborting the run.
+
+Every evaluated sample retains its input messages, expected answer, raw output, parsed and normalized objects, token counts, timings, finish reason, metric decisions, and error category. The generation and loss paths share the same selected records. Use the full 60-record split for comparisons; smaller counts select a prefix and can change tool balance.
+
+Reports are saved in the printed run directory. `latest_evaluation.json` points to that completed run. The new metrics are not directly comparable to the historical full-conversation loss or permissive exact-match scores.
+
+## Benchmarking and fusion
+
+```bash
+# Base and dynamic adapter, using the same system prompt and chat template as evaluation
+uv run python main.py benchmark --preset 3b --runs 5 --warmup 2
+
+# Fuse, benchmark all three variants, and evaluate their quality on the same holdout
+uv run python main.py benchmark --preset 3b --fuse --samples 60
+
+# Or create a fused model separately
+uv run python main.py fuse --preset 3b
+uv run python main.py eval --preset 3b --fused artifacts/fused_model --samples 60
+```
+
+Benchmarks record time to first token, prompt/prefill throughput, decode throughput, end-to-end throughput, total latency, and peak Metal allocation. Streaming metadata supplies token counts; generated text is not retokenized to estimate them. The MLX generation count includes a terminal EOS token when generated. Decode/prefill rates use MLX's measurements; TTFT and total latency use wall-clock time. Warmup runs are excluded, and every measured run is retained.
+
+The benchmark uses one operational prompt, so its results describe that workload and its generated lengths. Metal allocation is not total process or operating-system memory. Compare model variants using the same machine and runtime conditions.
+
+Fusion removes the dynamic adapter branch. Quantized fusion can alter outputs, and the speedup is workload-dependent. Fused speed is reported only after loading and measuring the fused model. `benchmark --fuse` and `benchmark --fused PATH` also create a linked quality evaluation of base, dynamic adapter, and fused model. A standalone fusion manifest records that quality has not yet been evaluated.
+
+Fused runs live under `artifacts/fused_model/runs/` (or the larger preset's corresponding directory), with a latest pointer. `--save-path` on `main.py fuse` changes that fusion root.
+
+## Serving
+
+```bash
+uv run python main.py serve --preset 3b --port 8080
+```
+
+This resolves the latest fused model. Use `--base` for an unadapted preset or `--model /path/to/actual/model` for a specific model. Supply the same system prompt used during training when making chat requests; the server does not inject this project's task prompt automatically.
+
+## Validation and maintenance
+
+```bash
+uv run python -m unittest discover -s tests -v
+uv run python scripts/build_notebook.py
+```
+
+Tests cover strict parsing, raw-versus-normalized scoring, grounded labels, reproducible and disjoint data, assistant loss masking, streaming measurements, CLI failures, full result persistence, and a real tiny-model MLX LoRA training run that checks callback delivery and artifact isolation. They do not establish memory fit or quality for the large pretrained models.

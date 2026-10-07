@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from pathlib import Path
+from src.runs import latest_path
 
 
 @dataclass(frozen=True)
@@ -52,8 +53,10 @@ def resolve_model_paths(preset=None, model=None, adapter=None, output_dir=None):
     profile = PRESETS[preset or "3b"]
     if preset and model and model != profile.model:
         raise ValueError("Use either --preset or a different --model, not both.")
+    if model and model != profile.model and adapter is None:
+        raise ValueError("An explicit --adapter is required for a custom --model")
     return (
         model or profile.model,
-        adapter or profile.adapter_path,
+        latest_path(adapter or profile.adapter_path),
         Path(output_dir) if output_dir is not None else profile.output_dir,
     )
