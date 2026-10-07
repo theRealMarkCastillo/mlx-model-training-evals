@@ -1,5 +1,6 @@
 """Run provenance and immutable artifact directories with small latest pointers."""
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 from importlib.metadata import version
@@ -7,7 +8,17 @@ import json
 from pathlib import Path
 import platform
 import subprocess
+import traceback
 from uuid import uuid4
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+MODEL_FILE_SUFFIXES = ('.json', '.safetensors', '.model', '.jinja', '.txt', '.tiktoken', '.py')
+
+
+def repo_path(path):
+    """Resolve repository-relative defaults independently of the current directory."""
+    path = Path(path)
+    return path if path.is_absolute() else REPO_ROOT / path
 
 
 def file_identity(path):
@@ -23,7 +34,7 @@ def directory_identity(path):
     path = Path(path)
     if not path.is_dir():
         raise FileNotFoundError(path)
-    return [file_identity(p) for p in sorted(path.rglob('*')) if p.is_file() and p.suffix in ('.json', '.safetensors', '.model', '.jinja', '.txt', '.tiktoken', '.py')]
+    return [file_identity(p) for p in sorted(path.rglob('*')) if p.is_file() and p.suffix in MODEL_FILE_SUFFIXES]
 
 
 def resolve_source(model):
@@ -31,9 +42,7 @@ def resolve_source(model):
     path = Path(model)
     if not path.is_dir():
         from huggingface_hub import snapshot_download
-        path = Path(snapshot_download(model, allow_patterns=[
-            '*.json', '*.safetensors', '*.model', '*.jinja', '*.txt', '*.tiktoken', '*.py',
-        ]))
+        path = Path(snapshot_download(model, allow_patterns=[f'*{s}' for s in MODEL_FILE_SUFFIXES]))
     path = path.absolute()
     if path.parent.name == 'snapshots':
         identity = {"requested": model, "path": str(path), "revision": path.name}
@@ -50,25 +59,45 @@ def write_json(path, data):
     temporary.replace(path)
 
 
+def _source_files():
+    files = [REPO_ROOT / 'main.py', REPO_ROOT / 'scripts' / 'build_notebook.py']
+    files += sorted((REPO_ROOT / 'src').glob('*.py')) + sorted((REPO_ROOT / 'config').glob('*.yaml'))
+    return [file_identity(p) for p in files if p.is_file()]
+
+
 def new_run(root, kind, **inputs):
     run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ') + '-' + uuid4().hex[:8]
     directory = Path(root).resolve() / 'runs' / f'{kind}-{run_id}'
     directory.mkdir(parents=True)
-    git = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True)
-    status = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True)
+    git = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True, cwd=REPO_ROOT)
+    status = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True, cwd=REPO_ROOT)
     manifest = {
-        'schema_version': 2, 'run_id': run_id, 'kind': kind, 'run_dir': str(directory),
+        'schema_version': 3, 'run_id': run_id, 'kind': kind, 'run_dir': str(directory),
         'created_at': datetime.now(timezone.utc).isoformat(), 'status': 'started',
         'python': platform.python_version(), 'platform': platform.platform(),
         'versions': {p: version(p) for p in ('mlx', 'mlx-lm', 'pydantic', 'transformers')},
         'git_commit': git.stdout.strip() if git.returncode == 0 else None,
         'git_dirty': bool(status.stdout.strip()),
-        'source_files': [file_identity(Path('main.py')), file_identity(Path('scripts/build_notebook.py'))] + [file_identity(p) for folder in ('src', 'data', 'config')
-                         for p in sorted(Path(folder).glob('*.py' if folder != 'config' else '*.yaml'))],
+        'source_files': _source_files(),
         **inputs,
     }
     write_json(directory / 'manifest.json', manifest)
     return directory, manifest
+
+
+@contextmanager
+def record_failure(directory, manifest):
+    """Mark the run failed, with its traceback, if the body raises."""
+    try:
+        yield
+    except BaseException as exc:
+        manifest.update(
+            status='failed', error=f'{type(exc).__name__}: {exc}',
+            traceback=traceback.format_exc(),
+            failed_at=datetime.now(timezone.utc).isoformat(),
+        )
+        write_json(Path(directory) / 'manifest.json', manifest)
+        raise
 
 
 def finish_run(root, directory, manifest):
@@ -77,14 +106,24 @@ def finish_run(root, directory, manifest):
     write_json(Path(root) / f"latest_{manifest['kind']}.json", manifest)
 
 
-def latest_path(path):
-    """A configured adapter/fusion directory can point at its latest completed run."""
+def latest_path(path, *, required=False):
+    """Follow `path/latest.json` to the most recent completed run.
+
+    With required=True, a missing pointer is an error instead of falling back to
+    `path` itself. Preset defaults use this so stale weights left in a configured
+    directory are never picked up silently.
+    """
     pointer = Path(path) / 'latest.json'
     if pointer.is_file():
         target = Path(json.loads(pointer.read_text())['path'])
         if not target.is_dir():
             raise FileNotFoundError(f'Latest artifact no longer exists: {target}')
         return str(target)
+    if required:
+        raise FileNotFoundError(
+            f'No completed run recorded at {pointer}. Run the producing step first '
+            '(train or fuse), or pass an explicit path.'
+        )
     return str(path)
 
 

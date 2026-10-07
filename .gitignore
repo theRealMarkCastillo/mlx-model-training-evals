@@ -11,13 +11,14 @@ wheels/
 
 # macOS
 .DS_Store
-
-# Large model artifacts and weights
-artifacts/fused_model/
-artifacts/qwen2.5-*/
-*.safetensors
 .ipynb_checkpoints/
 
-# New experiment runs and mutable latest pointers
-artifacts/**/runs/
-artifacts/**/latest*.json
+# Run outputs: weights, run directories, and mutable latest pointers.
+# A curated reference run is committed under docs/reference-run/ instead.
+*.safetensors
+*.tmp
+artifacts/qwen2.5-*/
+artifacts/custom/
+artifacts/historical/**/fused_model/
+artifacts/historical/qwen2.5-14b/
+artifacts/historical/qwen2.5-32b/

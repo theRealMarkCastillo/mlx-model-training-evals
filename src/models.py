@@ -1,8 +1,11 @@
-"""Shared Qwen presets and artifact paths for the tutorial workflow."""
+"""Qwen2.5 presets: the only settings that change with model size."""
 
 from dataclasses import dataclass
 from pathlib import Path
-from src.runs import latest_path
+
+from src.runs import REPO_ROOT, latest_path
+
+ARTIFACTS = REPO_ROOT / "artifacts"
 
 
 @dataclass(frozen=True)
@@ -18,7 +21,7 @@ class ModelPreset:
 
     @property
     def output_dir(self) -> Path:
-        return Path("artifacts") if self.size == "3b" else Path("artifacts") / f"qwen2.5-{self.size}"
+        return ARTIFACTS / f"qwen2.5-{self.size}"
 
     @property
     def adapter_path(self) -> str:
@@ -28,9 +31,12 @@ class ModelPreset:
     def fused_path(self) -> str:
         return str(self.output_dir / "fused_model")
 
-    @property
-    def config_path(self) -> str:
-        return "config/lora_config.yaml" if self.size == "3b" else f"config/qwen2.5-{self.size}.yaml"
+    def overrides(self) -> dict:
+        """Merged over config/base.yaml to form this preset's training config."""
+        return {
+            "model": self.model, "batch_size": self.batch_size, "num_layers": self.num_layers,
+            "grad_checkpoint": self.grad_checkpoint, "adapter_path": self.adapter_path,
+        }
 
 
 PRESETS = {
@@ -43,20 +49,32 @@ PRESETS = {
         ("72b", 1, 4, True),
     )
 }
+DEFAULT_PRESET = "3b"
 
 
 def add_preset_argument(parser):
-    parser.add_argument("--preset", choices=PRESETS, help="Qwen2.5 Instruct 4-bit model size (default: 3b)")
+    parser.add_argument("--preset", choices=PRESETS, help=f"Qwen2.5 Instruct 4-bit model size (default: {DEFAULT_PRESET})")
 
 
-def resolve_model_paths(preset=None, model=None, adapter=None, output_dir=None):
-    profile = PRESETS[preset or "3b"]
-    if preset and model and model != profile.model:
+def resolve_model_paths(preset=None, model=None, adapter=None, output_dir=None, *, need_adapter=True):
+    """Return (model, adapter directory or None, report root).
+
+    A preset's default adapter must come from a completed training run's
+    latest.json pointer. An explicit --adapter may be a pointer directory or an
+    actual adapter directory.
+    """
+    profile = PRESETS[preset or DEFAULT_PRESET]
+    custom = model is not None and model != profile.model
+    if preset and custom:
         raise ValueError("Use either --preset or a different --model, not both.")
-    if model and model != profile.model and adapter is None:
+    if custom and need_adapter and adapter is None:
         raise ValueError("An explicit --adapter is required for a custom --model")
-    return (
-        model or profile.model,
-        latest_path(adapter or profile.adapter_path),
-        Path(output_dir) if output_dir is not None else profile.output_dir,
-    )
+    if adapter is not None:
+        adapter = latest_path(adapter)
+    elif need_adapter:
+        adapter = latest_path(profile.adapter_path, required=True)
+    if output_dir is not None:
+        root = Path(output_dir)
+    else:
+        root = ARTIFACTS / "custom" if custom else profile.output_dir
+    return model or profile.model, adapter, root

@@ -2,26 +2,26 @@
   "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
   "adapter": "artifacts/adapters",
   "base_metrics": {
-    "num_samples": 15,
+    "num_samples": 25,
     "pure_json_rate": 1.0,
     "valid_json_rate": 1.0,
     "schema_valid_rate": 1.0,
     "tool_accuracy": 1.0,
-    "exact_match_rate": 0.4666666666666667,
-    "avg_output_tokens": 42.733333333333334,
-    "loss": 3.0636911549112233,
-    "perplexity": 21.406425948297358
+    "exact_match_rate": 0.52,
+    "avg_output_tokens": 42.56,
+    "loss": 3.0669861138274985,
+    "perplexity": 21.477075572226646
   },
   "lora_metrics": {
-    "num_samples": 15,
+    "num_samples": 25,
     "pure_json_rate": 1.0,
     "valid_json_rate": 1.0,
     "schema_valid_rate": 1.0,
     "tool_accuracy": 1.0,
-    "exact_match_rate": 0.6666666666666666,
-    "avg_output_tokens": 46.0,
-    "loss": 2.573709073138948,
-    "perplexity": 13.11437652536092
+    "exact_match_rate": 0.96,
+    "avg_output_tokens": 37.04,
+    "loss": 2.638372775278701,
+    "perplexity": 13.990419518842288
   },
   "side_by_side_samples": [
     {
@@ -32,32 +32,32 @@
     {
       "prompt": "Restart pod celery-worker-7f89b (ap-southeast-1) due to max socket limit.",
       "base_output": "{\"tool\": \"restart_pod\", \"parameters\": {\"pod_name\": \"celery-worker-7f89b\", \"region\": \"ap-southeast-1\", \"force\": true, \"reason\": \"max socket limit\"}}",
-      "lora_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"ap-southeast-1\",\"force\":true,\"reason\":\"max socket limit\"}}"
+      "lora_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"ap-southeast-1\",\"force\":false,\"reason\":\"Connection pool exhaustion\"}}"
     },
     {
       "prompt": "Rollback dep-8780 to previous good state v1.5.2. Gracefully terminate after draining.",
       "base_output": "{\"tool\": \"rollback_deployment\", \"parameters\": {\"deployment_id\": \"dep-8780\", \"target_tag\": \"v1.5.2\", \"drain_traffic\": true}}",
-      "lora_output": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-8780\",\"target_tag\":\"v1.5.2\",\"drain_traffic\":true,\"target_environment\":\"production\"}}"
+      "lora_output": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-8780\",\"target_tag\":\"v1.5.2\",\"drain_traffic\":true}}"
     },
     {
       "prompt": "Roll back deployment dep-1436 to tag v3.7.2. Drain active traffic first.",
       "base_output": "{\"tool\": \"rollback_deployment\", \"parameters\": {\"deployment_id\": \"dep-1436\", \"target_tag\": \"v3.7.2\", \"drain_traffic\": true}}",
-      "lora_output": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-1436\",\"target_tag\":\"v3.7.2\",\"drain_traffic\":true,\"tool_parameters\":{\"drain_traffic\":true}}}"
+      "lora_output": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-1436\",\"target_tag\":\"v3.7.2\",\"drain_traffic\":true}}"
     },
     {
       "prompt": "Scale cluster k8s-prod-cluster-east to 10 worker nodes using m6i.large. Keep autoscaling active.",
       "base_output": "{\"tool\": \"scale_cluster\", \"parameters\": {\"cluster_name\": \"k8s-prod-cluster-east\", \"node_count\": 10, \"auto_scale\": true}}",
-      "lora_output": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-prod-cluster-east\",\"node_count\":10,\"auto_scale\":true,\"instance_type\":\"m6i.large\",\"auto_scale\":\"true\"}}"
+      "lora_output": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-prod-cluster-east\",\"node_count\":10,\"auto_scale\":true,\"instance_type\":\"m6i.large\"}}"
     },
     {
       "prompt": "Restart pod postgres-primary-0 (eu-central-1) due to apply updated secret.",
       "base_output": "{\"tool\": \"restart_pod\", \"parameters\": {\"pod_name\": \"postgres-primary-0\", \"region\": \"eu-central-1\", \"force\": true, \"reason\": \"apply updated secret\"}}",
-      "lora_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"postgres-primary-0\",\"region\":\"eu-central-1\",\"force\":false,\"reason\":\"apply updated secret\"}}"
+      "lora_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"postgres-primary-0\",\"region\":\"eu-central-1\",\"force\":false,\"reason\":\"Configuration reload\"}}"
     },
     {
       "prompt": "Please restart celery-worker-7f89b located in ap-southeast-1. Reason: OOMKilled memory leak. Allow graceful shutdown.",
       "base_output": "{\"tool\": \"restart_pod\", \"parameters\": {\"pod_name\": \"celery-worker-7f89b\", \"region\": \"ap-southeast-1\", \"force\": false, \"reason\": \"OOMKilled memory leak. Allow graceful shutdown.\"}}",
-      "lora_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"ap-southeast-1\",\"force\":false,\"reason\":\"OOMKilled memory leak. Allow graceful shutdown.\",\"node_name\":\"celery-worker-7f89b\"}}"
+      "lora_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"celery-worker-7f89b\",\"region\":\"ap-southeast-1\",\"force\":false,\"reason\":\"OOMKilled memory leak\"}}"
     },
     {
       "prompt": "Please restart ingress-controller-4a11 located in eu-west-1. Reason: Configuration reload. Allow graceful shutdown.",
@@ -67,12 +67,12 @@
     {
       "prompt": "We need more compute in k8s-compute-cluster-west. Scale to 80 nodes (c6i.2xlarge). Autoscaler should be disabled.",
       "base_output": "{\"tool\": \"scale_cluster\", \"parameters\": {\"cluster_name\": \"k8s-compute-cluster-west\", \"node_count\": 80, \"auto_scale\": false}}",
-      "lora_output": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-compute-cluster-west\",\"node_count\":80,\"auto_scale\":false,\"instance_type\":\"c6i.2xlarge\",\"node_count\":80,\"auto_scale\":false,\"instance_type\":\"c6i.2xlarge\"}}"
+      "lora_output": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-compute-cluster-west\",\"node_count\":80,\"auto_scale\":false,\"instance_type\":\"c6i.2xlarge\"}}"
     },
     {
       "prompt": "We have an issue in eu-west-1: redis-cluster-cache-3 is experiencing timeout errors. Issue a standard restart.",
       "base_output": "{\"tool\": \"restart_pod\", \"parameters\": {\"pod_name\": \"redis-cluster-cache-3\", \"region\": \"eu-west-1\", \"force\": false, \"reason\": \"timeout errors\"}}",
-      "lora_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"redis-cluster-cache-3\",\"region\":\"eu-west-1\",\"force\":false,\"reason\":\"timeout errors\"}}"
+      "lora_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"redis-cluster-cache-3\",\"region\":\"eu-west-1\",\"force\":false,\"reason\":\"Unresponsive healthcheck timeout\"}}"
     }
   ]
 }

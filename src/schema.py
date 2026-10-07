@@ -47,6 +47,12 @@ class ScaleClusterParams(StrictModel):
     instance_type: str = Field(default="m6i.xlarge", description="Cloud instance size or VM type")
 
 
+class NoActionParams(StrictModel):
+    reason: Literal["unsupported_request", "missing_required_parameter"] = Field(
+        description="Why no tool call is made: no tool performs the request, or a required parameter is absent"
+    )
+
+
 class DeployServiceCall(StrictModel):
     tool: Literal["deploy_service"]
     parameters: DeployServiceParams
@@ -67,8 +73,13 @@ class ScaleClusterCall(StrictModel):
     parameters: ScaleClusterParams
 
 
+class NoActionCall(StrictModel):
+    tool: Literal["no_action"]
+    parameters: NoActionParams
+
+
 class ToolCall(RootModel[Annotated[
-    Union[DeployServiceCall, RestartPodCall, RollbackDeploymentCall, ScaleClusterCall],
+    Union[DeployServiceCall, RestartPodCall, RollbackDeploymentCall, ScaleClusterCall, NoActionCall],
     Field(discriminator="tool"),
 ]]):
     """Bind each tool name to exactly its own parameter schema."""
@@ -79,6 +90,7 @@ PARAM_MODEL_MAP = {
     "restart_pod": RestartPodParams,
     "rollback_deployment": RollbackDeploymentParams,
     "scale_cluster": ScaleClusterParams,
+    "no_action": NoActionParams,
 }
 
 
@@ -102,6 +114,8 @@ def build_system_prompt():
         "Include all parameters, using documented defaults when omitted in the request.",
         "For restart_pod.reason, copy the reason phrase exactly as written in the request, without surrounding sentence punctuation.",
         "Only notify channels explicitly requested; otherwise use an empty list.",
+        "If no tool performs the request, or a required parameter (one without a default) is missing, "
+        "respond with no_action instead of guessing a value.",
     ])
     return "\n".join(lines)
 
@@ -129,6 +143,24 @@ def _invalid_constant(value):
     raise ValueError(f"Non-JSON numeric constant: {value}")
 
 
+def _first_embedded_object(decoder, text):
+    """Return the first decodable JSON object in surrounding chatter.
+
+    Braces that do not start valid JSON (e.g. "use {tool}") are skipped. Duplicate
+    keys and nonstandard constants still fail, since they are not JSONDecodeErrors.
+    """
+    start = text.find("{")
+    while start >= 0:
+        try:
+            parsed, _ = decoder.raw_decode(text[start:])
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+        start = text.find("{", start + 1)
+    raise ValueError("No JSON object found")
+
+
 def parse_and_validate(raw_text: str) -> Dict[str, Any]:
     """Validate without modifying decoded data; normalized defaults are separate.
 
@@ -147,10 +179,7 @@ def parse_and_validate(raw_text: str) -> Dict[str, Any]:
             parsed = decoder.decode(text)
             result["is_pure_json"] = isinstance(parsed, dict)
         except json.JSONDecodeError:
-            start = text.find("{")
-            if start < 0:
-                raise ValueError("No JSON object found")
-            parsed, _ = decoder.raw_decode(text[start:])
+            parsed = _first_embedded_object(decoder, text)
         result["parsed_data"] = parsed
         result["is_valid_json"] = True
         validated = ToolCall.model_validate(parsed)

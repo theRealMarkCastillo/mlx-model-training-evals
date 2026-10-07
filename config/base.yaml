@@ -1,0 +1,36 @@
+# Base MLX LoRA configuration shared by every preset.
+#
+# A preset (src/models.py) overrides only what must change with model size:
+# model, batch_size, num_layers, grad_checkpoint, and adapter_path.
+# Everything below stays fixed so presets remain comparable.
+#
+# This file is also a complete standalone config for the 3B model:
+#   uv run python main.py train --config config/base.yaml
+
+model: "mlx-community/Qwen2.5-3B-Instruct-4bit"
+data: "data"                      # directory with train.jsonl / valid.jsonl / test.jsonl
+adapter_path: "artifacts/qwen2.5-3b/adapters"
+
+fine_tune_type: "lora"            # this workflow validates LoRA only
+mask_prompt: true                 # loss on assistant tokens only (see `main.py show-mask`)
+
+# LoRA: W_effective = W_base + scale * (B @ A), with A: rank x d_in, B: d_out x rank.
+# MLX applies `scale` directly; it is NOT alpha/rank as in some other libraries.
+lora_parameters:
+  rank: 8
+  scale: 16.0
+  dropout: 0.05
+
+learning_rate: 1.0e-4
+optimizer: "adamw"
+batch_size: 4
+iters: 200                        # 200 iters x batch 4 = 800 examples, about 3 passes over 250 records
+num_layers: 16                    # number of final transformer blocks that receive LoRA layers (-1 = all)
+grad_checkpoint: false
+
+max_seq_length: 1024
+steps_per_report: 10
+steps_per_eval: 25
+val_batches: -1                   # score the whole validation split at each eval
+save_every: 50
+seed: 42
