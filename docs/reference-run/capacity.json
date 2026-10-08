@@ -1,0 +1,187 @@
+{
+  "metric": "exact match (95% Wilson interval), greedy decoding",
+  "variants": "base, fewshot and grammar are prompting-only; lora needs an adapter",
+  "sizes": {
+    "3b": {
+      "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+      "run_id": "20261007T222811819354Z-c00ba12d",
+      "variants": [
+        "base",
+        "fewshot",
+        "lora",
+        "grammar"
+      ],
+      "constrained": true,
+      "datasets": {
+        "test": {
+          "base": {
+            "n": 75,
+            "exact_match_rate": 0.0,
+            "schema_valid_rate": 0.0,
+            "tool_accuracy": 0.0,
+            "ci95": [
+              0.0,
+              0.04872554590470005
+            ]
+          },
+          "fewshot": {
+            "n": 75,
+            "exact_match_rate": 0.68,
+            "schema_valid_rate": 0.8533333333333334,
+            "tool_accuracy": 0.92,
+            "ci95": [
+              0.5678872410148672,
+              0.7745715624594409
+            ]
+          },
+          "lora": {
+            "n": 75,
+            "exact_match_rate": 1.0,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.9512744540953,
+              1.0
+            ]
+          },
+          "grammar": {
+            "n": 75,
+            "exact_match_rate": 0.4266666666666667,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 0.8933333333333333,
+            "ci95": [
+              0.32100563365956936,
+              0.53947411307312
+            ]
+          }
+        },
+        "challenge_abstain": {
+          "base": {
+            "n": 40,
+            "exact_match_rate": 0.0,
+            "schema_valid_rate": 0.0,
+            "tool_accuracy": 0.0,
+            "ci95": [
+              0.0,
+              0.08762453925039232
+            ]
+          },
+          "fewshot": {
+            "n": 40,
+            "exact_match_rate": 1.0,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.9123754607496077,
+              1.0
+            ]
+          },
+          "lora": {
+            "n": 40,
+            "exact_match_rate": 0.95,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.834958291820748,
+              0.9861796228538989
+            ]
+          },
+          "grammar": {
+            "n": 40,
+            "exact_match_rate": 1.0,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.9123754607496077,
+              1.0
+            ]
+          }
+        },
+        "challenge_defaults": {
+          "base": {
+            "n": 40,
+            "exact_match_rate": 0.0,
+            "schema_valid_rate": 0.0,
+            "tool_accuracy": 0.0,
+            "ci95": [
+              0.0,
+              0.08762453925039232
+            ]
+          },
+          "fewshot": {
+            "n": 40,
+            "exact_match_rate": 0.575,
+            "schema_valid_rate": 0.875,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.42194800436059987,
+              0.7149083147518411
+            ]
+          },
+          "lora": {
+            "n": 40,
+            "exact_match_rate": 1.0,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.9123754607496077,
+              1.0
+            ]
+          },
+          "grammar": {
+            "n": 40,
+            "exact_match_rate": 0.425,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.28509168524815875,
+              0.5780519956394001
+            ]
+          }
+        },
+        "challenge_entities": {
+          "base": {
+            "n": 40,
+            "exact_match_rate": 0.0,
+            "schema_valid_rate": 0.0,
+            "tool_accuracy": 0.0,
+            "ci95": [
+              0.0,
+              0.08762453925039232
+            ]
+          },
+          "fewshot": {
+            "n": 40,
+            "exact_match_rate": 0.6,
+            "schema_valid_rate": 0.825,
+            "tool_accuracy": 0.95,
+            "ci95": [
+              0.445956198273935,
+              0.7365188938759863
+            ]
+          },
+          "lora": {
+            "n": 40,
+            "exact_match_rate": 0.75,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.598057409330299,
+              0.8581303210445048
+            ]
+          },
+          "grammar": {
+            "n": 40,
+            "exact_match_rate": 0.4,
+            "schema_valid_rate": 0.975,
+            "tool_accuracy": 0.975,
+            "ci95": [
+              0.2634811061240136,
+              0.5540438017260649
+            ]
+          }
+        }
+      }
+    }
+  }
+}

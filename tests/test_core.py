@@ -474,6 +474,63 @@ class MergeSeedSweepTests(unittest.TestCase):
             self.assertEqual(merge_seed_sweep.collect_seed_rows(preset_root), [])
 
 
+class ExportCapacityTests(unittest.TestCase):
+    def _evaluation(self, artifacts_root, size, run_id, variants, datasets):
+        run = artifacts_root / f'qwen2.5-{size}' / 'runs' / f'evaluation-{run_id}'
+        run.mkdir(parents=True)
+        (run / 'eval_results.json').write_text(json.dumps({
+            'model': f'mlx-community/Qwen2.5-{size.upper()}-Instruct-4bit', 'run_id': run_id,
+            'variants': variants, 'constrained': 'grammar' in variants, 'datasets': datasets}))
+        return run
+
+    def _metrics(self, rate):
+        return {'num_samples': 75, 'exact_match_rate': rate, 'schema_valid_rate': 1.0,
+                'tool_accuracy': 0.9, 'intervals': {'exact_match_rate': [rate - 0.1, rate + 0.1]}}
+
+    def test_capacity_export_covers_every_size_that_has_a_run(self):
+        from scripts import export_capacity
+
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts_root, out = Path(tmp) / 'artifacts', Path(tmp) / 'out'
+            self._evaluation(artifacts_root, '3b', 'r3', ['base', 'grammar'],
+                             {'test': {'base': self._metrics(0.0), 'grammar': self._metrics(0.43)}})
+            # a newer run for 14b, and none at all for 32b
+            self._evaluation(artifacts_root, '14b', 'r14', ['base', 'fewshot', 'grammar'],
+                             {'test': {'base': self._metrics(0.1), 'fewshot': self._metrics(0.8),
+                                       'grammar': self._metrics(0.66)}})
+            payload = export_capacity.build_capacity(artifacts_root)
+            self.assertEqual(set(payload), {'3b', '14b'})
+            self.assertEqual(payload['14b']['variants'], ['base', 'fewshot', 'grammar'])
+            self.assertAlmostEqual(payload['14b']['datasets']['test']['grammar']['exact_match_rate'], 0.66)
+            self.assertEqual(payload['14b']['datasets']['test']['grammar']['n'], 75)
+            self.assertNotIn('sample_results', payload['3b']['datasets']['test']['base'])
+            written = export_capacity.main(artifacts_root, out)
+            self.assertEqual(set(written['sizes']), {'3b', '14b'})
+            self.assertTrue((out / 'capacity.json').is_file())
+
+    def test_capacity_export_picks_the_newest_run_and_fails_clearly_when_empty(self):
+        from scripts import export_capacity
+
+        with tempfile.TemporaryDirectory() as tmp:
+            artifacts_root = Path(tmp) / 'artifacts'
+            old = self._evaluation(artifacts_root, '3b', 'old', ['base'], {'test': {'base': self._metrics(0.0)}})
+            new = self._evaluation(artifacts_root, '3b', 'new', ['base', 'grammar'],
+                                   {'test': {'base': self._metrics(0.0), 'grammar': self._metrics(0.5)}})
+            import os
+            os.utime(old / 'eval_results.json', (1, 1))   # make the ordering unambiguous
+            os.utime(new / 'eval_results.json', (2, 2))
+            # an older report with a different schema must be skipped, not fatal
+            stale = artifacts_root / 'qwen2.5-3b' / 'runs' / 'evaluation-stale' / 'eval_results.json'
+            stale.parent.mkdir(parents=True)
+            stale.write_text(json.dumps({'model': 'old', 'base_metrics': {}}))
+            import os
+            os.utime(stale, (3, 3))
+            payload = export_capacity.build_capacity(artifacts_root)
+            self.assertEqual(payload['3b']['run_id'], 'new')
+            with self.assertRaises(ValueError):
+                export_capacity.main(Path(tmp) / 'nothing-here', Path(tmp) / 'out')
+
+
 class CoreImportGuardTests(unittest.TestCase):
     def test_core_modules_import_without_mlx_or_transformers(self):
         """The Linux CI job depends on this staying true."""
