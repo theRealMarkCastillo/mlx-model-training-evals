@@ -56,7 +56,7 @@ def cmd_eval(args):
         num_eval_samples=args.samples, preset=args.preset, output_dir=args.output_dir,
         fused_path=args.fused, max_tokens=args.max_tokens, variants=args.variants,
         shots=args.shots, challenge=args.challenge, constrained=args.constrained,
-        temperature=args.temperature, seed=args.seed,
+        temperature=args.temperature, seed=args.seed, repeats=args.repeats,
     )
 
 
@@ -194,6 +194,8 @@ def build_parser():
     p.add_argument("--temperature", type=float, default=0.0,
                    help="0.0 = greedy (default). >0 samples: one stochastic draw per record, seeded")
     p.add_argument("--seed", type=int, default=42, help="Sampling seed when --temperature > 0")
+    p.add_argument("--repeats", type=positive_int, default=1,
+                   help="Draws per record; >1 adds a pass@k summary of what retrying recovers")
     p.set_defaults(func=cmd_eval)
 
     p = sub.add_parser("forgetting", help="Compare base vs LoRA on general requests (catastrophic forgetting)")

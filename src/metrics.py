@@ -192,3 +192,37 @@ def sweep_summary(values):
     variance = sum((value - mean) ** 2 for value in values) / len(values)
     return {"n": len(values), "mean": mean, "stdev": math.sqrt(variance),
             "min": min(values), "max": max(values)}
+
+
+def pass_at_k(per_repeat_results):
+    """Aggregate k repeated evaluations of the same records.
+
+    `per_repeat_results` is a list of k result lists, one per repeat, covering the same
+    records in the same order. Returns the first repeat's rate, every repeat's rate, and
+    **pass@k**: the fraction of records that *any* repeat got exactly right.
+
+    This is the honest counterpart to "sampling costs validity". Sampling lowers the
+    single-draw score, but a deployment can retry, so the question that matters is how
+    much of the greedy score k attempts recover — and, at temperature 0, the same
+    computation measures how much of the score is Metal run-to-run flakiness.
+    """
+    if not per_repeat_results:
+        raise ValueError("pass_at_k needs at least one repeat")
+    n = len(per_repeat_results[0])
+    if not n:
+        raise ValueError("Cannot summarize zero results")
+    for results in per_repeat_results:
+        if len(results) != n:
+            raise ValueError("Every repeat must cover the same records")
+        if any(a["id"] != b["id"] for a, b in zip(per_repeat_results[0], results, strict=True)):
+            raise ValueError("Every repeat must cover the same records in the same order")
+    per_repeat = [sum(bool(r["param_exact"]) for r in results) / n for results in per_repeat_results]
+    any_correct = sum(any(bool(results[i]["param_exact"]) for results in per_repeat_results) for i in range(n))
+    low, high = wilson_interval(any_correct, n)
+    return {
+        "k": len(per_repeat_results), "n": n,
+        "first_repeat_rate": per_repeat[0], "per_repeat_rates": per_repeat,
+        "pass_at_k_rate": any_correct / n, "ci95": [low, high],
+        "records_all_failed": sum(all(not results[i]["param_exact"] for results in per_repeat_results)
+                                  for i in range(n)),
+    }

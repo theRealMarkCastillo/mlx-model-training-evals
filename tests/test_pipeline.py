@@ -83,7 +83,7 @@ class EvaluationTests(unittest.TestCase):
             (adapter / 'adapter_config.json').write_text('{}')
             seen_messages = []
 
-            def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0):
+            def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0, repeats=1):
                 seen_messages.append((desc, len(samples[0]['messages'])))
                 results = []
                 for s in samples:
@@ -134,7 +134,7 @@ class EvaluationTests(unittest.TestCase):
     def test_constrained_flag_adds_a_grammar_variant_and_only_it_is_constrained(self):
         used_generate = []
 
-        def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0):
+        def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0, repeats=1):
             used_generate.append((desc.split('/')[0], generate is not None))
             results = []
             for s in samples:
@@ -389,7 +389,7 @@ class TemperatureTests(unittest.TestCase):
     def test_evaluation_records_temperature_and_seed_and_forwards_them(self):
         seen = {}
 
-        def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0):
+        def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0, repeats=1):
             seen.setdefault('temperature', temperature)
             results = []
             for s in samples:
@@ -405,14 +405,45 @@ class TemperatureTests(unittest.TestCase):
                 patch.object(evaluate, 'compute_perplexity', return_value={'loss': 1., 'perplexity': math.e}), \
                 patch.object(evaluate, 'run_deterministic_eval', side_effect=fake_eval):
             report = evaluate.run_comprehensive_evaluation(variants=('base',), output_dir=tmp, num_eval_samples=4,
-                                                           temperature=0.7, seed=7, quiet=True)
+                                                           temperature=0.7, seed=7, repeats=2, quiet=True)
             manifest = json.loads((Path(report['run_dir']) / 'manifest.json').read_text())
         self.assertEqual(seen['temperature'], 0.7)
         self.assertEqual(manifest['generation']['temperature'], 0.7)
         self.assertEqual(manifest['generation']['seed'], 7)
+        self.assertEqual(manifest['generation']['repeats'], 2)
         self.assertEqual(report['temperature'], 0.7)
+        self.assertEqual(report['repeats'], 2)
         with self.assertRaises(ValueError):
             evaluate.run_comprehensive_evaluation(temperature=3.0)
+        with self.assertRaises(ValueError):
+            evaluate.run_comprehensive_evaluation(repeats=0)
+
+
+class RepeatedSamplingTests(unittest.TestCase):
+    def test_repeats_report_first_draw_metrics_and_pass_at_k(self):
+        records = [{**sample(), 'id': 'test.jsonl:1'}, {**sample(), 'id': 'test.jsonl:2'}]
+        # repeat 1: record 1 right, record 2 wrong. repeat 2: the other way round.
+        outputs = [json.dumps(TARGET), 'nope', 'nope', json.dumps(TARGET)]
+        with patch.object(evaluate, 'generate_response', side_effect=[generation(text) for text in outputs]):
+            metrics = evaluate.run_deterministic_eval(object(), object(), records, repeats=2)
+        self.assertEqual(metrics['num_samples'], 2)
+        self.assertEqual(metrics['exact_match_rate'], 0.5)          # flat metrics describe the first draw
+        self.assertEqual(len(metrics['sample_results']), 2)
+        pass_metrics = metrics['pass_at_k']
+        self.assertEqual(pass_metrics['k'], 2)
+        self.assertEqual(pass_metrics['per_repeat_rates'], [0.5, 0.5])
+        self.assertEqual(pass_metrics['pass_at_k_rate'], 1.0)       # retrying recovers both records
+        self.assertEqual(pass_metrics['records_all_failed'], 0)
+
+    def test_greedy_repeats_measure_flakiness_not_sampling(self):
+        records = [{**sample(), 'id': 'test.jsonl:1'}]
+        outputs = [json.dumps(TARGET), 'nope']   # same config, different draw: run-to-run flakiness
+        with patch.object(evaluate, 'generate_response', side_effect=[generation(text) for text in outputs]):
+            metrics = evaluate.run_deterministic_eval(object(), object(), records, temperature=0.0, repeats=2)
+        self.assertEqual(metrics['pass_at_k']['per_repeat_rates'], [1.0, 0.0])
+        self.assertEqual(metrics['pass_at_k']['pass_at_k_rate'], 1.0)
+        with self.assertRaises(ValueError):
+            evaluate.run_deterministic_eval(object(), object(), records, repeats=0)
 
 
 if __name__ == '__main__':

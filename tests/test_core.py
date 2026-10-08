@@ -30,6 +30,7 @@ from src.generate_data import (
 from src.metrics import (
     failure_examples,
     paired_comparison,
+    pass_at_k,
     score_sample,
     sign_test,
     summarize,
@@ -252,6 +253,25 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(sweep_summary([0.8])['stdev'], 0.0)
         with self.assertRaises(ValueError):
             sweep_summary([])
+
+
+    def test_pass_at_k_counts_what_retrying_recovers(self):
+        def result(index, exact):
+            return {'id': f'test.jsonl:{index}', 'param_exact': exact}
+
+        repeat_one = [result(1, True), result(2, False), result(3, False)]
+        repeat_two = [result(1, True), result(2, True), result(3, False)]
+        metrics = pass_at_k([repeat_one, repeat_two])
+        self.assertEqual(metrics['k'], 2)
+        self.assertEqual(metrics['n'], 3)
+        self.assertAlmostEqual(metrics['first_repeat_rate'], 1 / 3)
+        self.assertEqual(metrics['per_repeat_rates'], [1 / 3, 2 / 3])
+        self.assertAlmostEqual(metrics['pass_at_k_rate'], 2 / 3)
+        self.assertEqual(metrics['records_all_failed'], 1)   # record 3 fails both draws
+        self.assertEqual(pass_at_k([repeat_one])['pass_at_k_rate'], pass_at_k([repeat_one])['first_repeat_rate'])
+        for bad in ([], [[]], [repeat_one, repeat_one[:2]], [repeat_one, [result(9, True)] * 3]):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                pass_at_k(bad)
 
 
 class GeneralSetTests(unittest.TestCase):

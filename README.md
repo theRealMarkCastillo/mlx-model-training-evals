@@ -223,7 +223,10 @@ Loss and exact match answer different questions. Loss measures how much probabil
 
 ```bash
 uv run python main.py eval --preset 3b --temperature 0.7 --seed 7
+uv run python main.py eval --preset 3b --temperature 0.7 --seed 7 --repeats 5   # plus pass@k
 ```
+
+`--repeats k` draws k samples per record and adds a **pass@k** table: the first draw's rate (what the flat metrics report), every draw's rate, the fraction of records that *any* draw got right, and how many records no draw got. That is how you price sampling honestly — retrying recovers part of what one draw loses, and the never-right residue is what more attempts will not fix. With `--temperature 0` the same command measures run-to-run flakiness instead of sampling, which is a useful sanity check of the Metal non-determinism the reproducibility notes mention.
 
 ### Did fine-tuning hurt anything else?
 
@@ -379,6 +382,6 @@ uv run ruff check .                         # lint config lives in pyproject.tom
 
 * The task is synthetic and narrow. Wording, entities, and request types are drawn from small templates, which is useful for controlled experiments but is not real traffic.
 * Test sets are small (40–75 records). Read the intervals; differences of a few points are usually noise.
-* Greedy decoding is the default and what the reference numbers use. `--temperature` samples one draw per record (seeded), which measures the *stochastic* cost of structured output but not the pass@k benefit of retrying; a repeated-sampling study is the natural next experiment.
+* Greedy decoding is the default and what the reference numbers use. `--temperature` samples and `--repeats k` reports pass@k, so the stochastic cost of structured output and the value of retrying are both measurable; what is still missing is a study of *which* records retrying fixes (the per-record data is in `eval_results.json`, the analysis is not written).
 * The grammar variant is specialized to this envelope, not a general JSON-Schema compiler: whitespace outside strings, escapes inside them, and strings/arrays longer than the caps are excluded by construction. It answers "would valid JSON have been enough?" for this task, which is the question the repo is about.
 * The constrained-decoding numbers come from one seed on the full evaluation sets. The mechanism (format failures vanish, task errors remain) is robust; the exact percentages in that table are point estimates with the intervals shown.

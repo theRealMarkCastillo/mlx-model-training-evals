@@ -38,6 +38,7 @@ from src.metrics import (
     failure_examples,
     format_rate,
     paired_comparison,
+    pass_at_k,
     score_sample,
     summarize,
 )
@@ -88,31 +89,41 @@ def compute_perplexity(model, tokenizer, samples):
 
 
 def run_deterministic_eval(model, tokenizer, test_samples, max_tokens=150, desc="Evaluating",
-                           generate=None, temperature=0.0):
-    """Greedy-decode each prompt, parse strictly, and score against the reference.
+                           generate=None, temperature=0.0, repeats=1):
+    """Decode each prompt, parse strictly, and score against the reference.
 
     `generate` is the decoding function; evaluation passes the grammar-constrained one for
     its `grammar` variant and leaves the default (plain greedy) everywhere else.
-    `temperature > 0` samples instead of decoding greedily — the metrics are the same, but
-    a run is then a stochastic draw rather than a fixed measurement (see the README).
+    `temperature > 0` samples instead of decoding greedily. `repeats > 1` draws that many
+    samples per record and adds a `pass_at_k` block: the flat metrics describe the *first*
+    draw (so every existing report and chart keeps its meaning), and pass@k reports what
+    retrying recovers. At temperature 0 the repeats are only as different as Metal is.
     """
     if not test_samples:
         raise ValueError("Cannot evaluate an empty dataset")
     positive_int(max_tokens)
+    positive_int(repeats)
     generate = generate or generate_response
-    results = []
-    for item in tqdm(test_samples, desc=desc, leave=False):
-        generated = generate(model, tokenizer, item["messages"][:-1], max_tokens, temperature=temperature)
-        parsed = parse_and_validate(generated["raw_output"])
-        scored = score_sample(item["expected"], item.get("normalized_expected", item["expected"]), parsed)
-        results.append({
-            "id": item["id"], "prompt": item["prompt"], "meta": item.get("meta"),
-            "messages": item["messages"][:-1], "expected": item["expected"],
-            **generated, **parsed, **scored,
-        })
+    per_repeat = []
+    for repeat in range(repeats):
+        label = f"{desc} (repeat {repeat + 1}/{repeats})" if repeats > 1 else desc
+        results = []
+        for item in tqdm(test_samples, desc=label, leave=False):
+            generated = generate(model, tokenizer, item["messages"][:-1], max_tokens, temperature=temperature)
+            parsed = parse_and_validate(generated["raw_output"])
+            scored = score_sample(item["expected"], item.get("normalized_expected", item["expected"]), parsed)
+            results.append({
+                "id": item["id"], "prompt": item["prompt"], "meta": item.get("meta"),
+                "messages": item["messages"][:-1], "expected": item["expected"],
+                **generated, **parsed, **scored,
+            })
+        per_repeat.append(results)
+    results = per_repeat[0]
     metrics = summarize(results)
     metrics["avg_output_tokens"] = sum(r["output_tokens"] for r in results) / len(results)
     metrics["sample_results"] = results
+    if repeats > 1:
+        metrics["pass_at_k"] = pass_at_k(per_repeat)
     return metrics
 
 
@@ -278,6 +289,24 @@ def print_report(datasets, paired=None, focus="lora", schema_paired=None):
             console.print(table)
 
     focus = focus if focus in test else variants[-1]
+
+    pass_metrics = {variant: test[variant]["pass_at_k"] for variant in variants if "pass_at_k" in test[variant]}
+    if pass_metrics:
+        table = Table(title=f"Repeated sampling on the holdout ({next(iter(pass_metrics.values()))['k']} draws per record)")
+        for column in ("Variant", "First draw", "Every draw", "pass@k", "Records no draw got"):
+            table.add_column(column, justify="right" if column != "Variant" else "left")
+        for variant, metrics in pass_metrics.items():
+            table.add_row(
+                LABELS.get(variant, variant),
+                format_rate(metrics["first_repeat_rate"], metrics["ci95"]),
+                " / ".join(f"{100 * rate:.0f}%" for rate in metrics["per_repeat_rates"]),
+                format_rate(metrics["pass_at_k_rate"], metrics["ci95"]),
+                str(metrics["records_all_failed"]),
+            )
+        console.print(table)
+        console.print("[dim]Retrying recovers some of what sampling costs; records no draw got right are the residue "
+                      "that more attempts will not fix.[/dim]")
+
     examples = failure_examples(test[focus]["sample_results"])
     if examples:
         console.print(f"[bold]Example {LABELS.get(focus, focus)} failures[/bold]")
@@ -293,7 +322,7 @@ def run_comprehensive_evaluation(
     model_name=None, adapter_path=None, test_jsonl=None, num_eval_samples=None,
     *, preset=None, output_dir=None, fused_path=None, max_tokens=150,
     variants=DEFAULT_VARIANTS, shots=5, challenge=False, quiet=False, constrained=False,
-    temperature=0.0, seed=42,
+    temperature=0.0, seed=42, repeats=1,
 ):
     """Evaluate the chosen variants on the test split (and challenge sets) in a new run directory.
 
@@ -303,11 +332,13 @@ def run_comprehensive_evaluation(
     instead of decoding greedily, which turns each variant into one stochastic draw: the
     metrics and the paired test still apply, but the numbers are no longer the model's
     single most likely output. The seed is recorded and re-applied per variant, so a
-    sampled run is reproducible.
+    sampled run is reproducible. `repeats > 1` draws that many samples per record and adds
+    a pass@k summary of what retrying recovers.
     """
     if num_eval_samples is not None:
         positive_int(num_eval_samples)
     positive_int(max_tokens)
+    positive_int(repeats)
     if not 0.0 <= temperature <= 2.0:
         raise ValueError("temperature must be between 0.0 and 2.0")
     variants = tuple(variants)
@@ -334,7 +365,7 @@ def run_comprehensive_evaluation(
         datasets={name: file_identity(path) for name, path in paths.items()},
         sample_ids={name: [s["id"] for s in group] for name, group in samples.items()},
         fewshot_ids=[s["id"] for s in demos], constrained=constrained,
-        generation={"temperature": temperature, "max_tokens": max_tokens, "seed": seed},
+        generation={"temperature": temperature, "max_tokens": max_tokens, "seed": seed, "repeats": repeats},
     )
     with record_failure(run_dir, manifest):
         # plan entries: (variant name, model source, adapter, use grammar-constrained decoding)
@@ -359,14 +390,14 @@ def run_comprehensive_evaluation(
                     generate = constrained_generate if use_grammar else None
                     metrics = run_deterministic_eval(model, tokenizer, group, max_tokens,
                                                      desc=f"{variant}/{name}", generate=generate,
-                                                     temperature=temperature)
+                                                     temperature=temperature, repeats=repeats)
                     datasets[name][variant] = {**metrics, **intrinsic}
             finally:
                 del model
                 mx.clear_cache()
         report = {"model": model_name, "adapter": adapter_path, "run_dir": str(run_dir), "run_id": manifest["run_id"],
                   "variants": [name for name, _, _, _ in plan], "constrained": constrained,
-                  "temperature": temperature, "seed": seed, "datasets": datasets,
+                  "temperature": temperature, "seed": seed, "repeats": repeats, "datasets": datasets,
                   "paired": paired_report(datasets),
                   "paired_schema": paired_report(datasets, flag="is_schema_valid")}
         plot_eval_metrics(datasets["test"], run_dir / "eval_comparison.png")
