@@ -81,9 +81,17 @@ class SchemaGrammarTests(unittest.TestCase):
                     '{"tool":"f","parameters":{"x":1e}}'):
             self.assertFalse(ok(bad, [function]), bad)
 
+    def test_whitespace_is_accepted_everywhere_json_allows_it(self):
+        function = {"name": "calculate_triangle_area", "parameters": FLAT}
+        spaced = '{"tool": "calculate_triangle_area", "parameters": {"base": 10, "height": 5, "unit": "units"}}'
+        self.assertTrue(ok(spaced, [function]))
+        self.assertTrue(ok(' { "tool" : "calculate_triangle_area" , "parameters" : { "base" : 10 , "height" : 5 } }', [function]))
+        # whitespace does not legalize a trailing comma
+        self.assertFalse(ok('{"tool": "calculate_triangle_area", "parameters": {"base": 10, }}', [function]))
+
 
 class FakeTokenizer:
-    KEY_PARTS = ['{', '}', '"', ':', ',', '[', ']', '-', '_', '.']
+    KEY_PARTS = ['{', '}', '"', ':', ',', '[', ']', '-', '_', '.', ' ']
     WORDS = ['true', 'false', 'tool', 'parameters']
 
     def __init__(self):
@@ -117,6 +125,11 @@ class SchemaProcessorTests(unittest.TestCase):
         for character, bonus in (('"', 30.0), (',', 20.0), ('}', 20.0), (']', 20.0)):
             if character in text_to_id:
                 logits[text_to_id[character]] += bonus
+        # Whitespace does not advance the grammar state, so a fixed-logit model can loop on
+        # it; penalize it so the round-trip tests produce compact output (whitespace
+        # correctness is covered by the feed tests above).
+        if ' ' in text_to_id:
+            logits[text_to_id[' ']] -= 5.0
         logits = mx.array(logits)
         prompt, generated = [1, 2, 3], []
         for _ in range(steps):

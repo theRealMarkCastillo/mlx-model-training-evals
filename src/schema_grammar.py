@@ -19,9 +19,9 @@ Design:
 The schema subset is what BFCL v3 simple actually uses: `object` (with `properties` and
 `required`), `array` (with `items`), `string`, `integer`, `float`, `boolean`, plus a
 `dep` node that selects a sub-schema from a sibling's value (`parameters` depends on
-`tool`). Same restrictions as the tool grammar: no whitespace outside strings, no string
-escapes or control characters, and keys must be written in a stable order (a dependent
-key only becomes reachable once its dependency is written).
+`tool`). Structural whitespace (space, tab, newline) is allowed everywhere JSON allows it;
+strings still disallow escapes and control characters, and keys must be written in a
+stable order (a dependent key only becomes reachable once its dependency is written).
 """
 
 from typing import NamedTuple
@@ -30,6 +30,9 @@ from src.constrained import DIGITS, NAME_CHARS, GrammarProcessor
 
 # Node kinds understood by the state machine.
 OBJECT, ARRAY, STRING, INT, NUMBER, BOOL, DEP, ENUM = ("object", "array", "string", "int", "number", "bool", "dep", "enum")
+# JSON structural whitespace, and the modes that may legally see it before the next token.
+WHITESPACE = " \t\n\r"
+WHITESPACE_MODES = ("start", "key", "colon", "value", "array", "after")
 
 
 class ObjectFrame(NamedTuple):
@@ -220,6 +223,8 @@ class JsonSchemaGrammar:
 
     def _step(self, state, character):
         mode = state.mode
+        if character in WHITESPACE and mode in WHITESPACE_MODES:
+            return state   # structural whitespace, consumed without a state change
         if mode == "start":
             if character != "{":
                 return None
@@ -458,6 +463,13 @@ class SchemaGrammarProcessor(GrammarProcessor):
     inherited unchanged.
     """
 
+    def __init__(self, tokenizer, vocab_size=None, grammar=None, max_string_tokens=24, max_array_items=8):
+        super().__init__(tokenizer, vocab_size, grammar, max_string_tokens=max_string_tokens,
+                         max_array_items=max_array_items)
+        # Tokens that are pure whitespace, offered in the modes where JSON allows it so the
+        # model's natural spaced output is reachable.
+        self._whitespace = [token_id for token_id, text in self.token_text.items() if text.strip() == ""]
+
     def _state_signature(self, state):
         return (state.mode, state.frames, state.text, state.letters, state.after_comma)
 
@@ -469,16 +481,16 @@ class SchemaGrammarProcessor(GrammarProcessor):
             return self._mask_cache[signature]
         mode = state.mode
         if mode == "start":
-            allowed = self._validated("{")
+            allowed = self._validated("{") + self._whitespace
         elif mode == "key":
-            allowed = self._validated('"}')
+            allowed = self._validated('"}') + self._whitespace
         elif mode == "in_key":
             allowed = self._literal_candidates(self.grammar.available_keys(state), state.text)
         elif mode == "colon":
-            allowed = self._validated(":")
+            allowed = self._validated(":") + self._whitespace
         elif mode == "value":
             node = self.grammar._value_node(state)
-            allowed = self._validated(NODE_FIRST_CHARS[node["type"]]) if node is not None else []
+            allowed = (self._validated(NODE_FIRST_CHARS[node["type"]]) if node is not None else []) + self._whitespace
         elif mode == "in_string":
             node = self.grammar._value_node(state)
             if node is not None and node["type"] == ENUM:
@@ -501,11 +513,11 @@ class SchemaGrammarProcessor(GrammarProcessor):
             allowed = self._validated(target[len(state.letters):len(state.letters) + 1])
         elif mode == "array":
             node = self.grammar._node(self.grammar._top(state).item)
-            allowed = self._validated(NODE_FIRST_CHARS[node["type"]])
+            allowed = self._validated(NODE_FIRST_CHARS[node["type"]]) + self._whitespace
             if self.grammar._top(state).count == 0 and not state.after_comma:
                 allowed += self._validated("]")
         elif mode == "after":
-            allowed = self._validated(self._close_chars(state))
+            allowed = self._validated(self._close_chars(state)) + self._whitespace
         elif self.grammar.complete:
             allowed = [self.eos_token_id] if self.eos_token_id is not None else []
         else:
