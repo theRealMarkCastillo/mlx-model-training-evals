@@ -23,6 +23,7 @@ from src.bfcl import load_bfcl, load_bfcl_irrelevance, save_records  # noqa: E40
 BASE = "https://huggingface.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard/resolve/main"
 OUT = ROOT / "data" / "bfcl_simple.jsonl"
 OUT_IRRELEVANCE = ROOT / "data" / "bfcl_irrelevance.jsonl"
+OUT_MULTIPLE = ROOT / "data" / "bfcl_multiple.jsonl"
 CACHE = Path("/tmp") / "bfcl-fetch"
 
 
@@ -48,6 +49,13 @@ def main():
     records, skipped = load_bfcl_irrelevance(irrelevance)
     save_records(records, OUT_IRRELEVANCE)
     print(f"Wrote {len(records)} records to {OUT_IRRELEVANCE.relative_to(ROOT)}")
+    print(f"Skipped: {json.dumps(skipped)}")
+
+    multiple = fetch("BFCL_v3_multiple.json")
+    answers = fetch("possible_answer/BFCL_v3_multiple.json")
+    records, skipped = load_bfcl(multiple, answers)
+    save_records(records, OUT_MULTIPLE)
+    print(f"Wrote {len(records)} records to {OUT_MULTIPLE.relative_to(ROOT)}")
     print(f"Skipped: {json.dumps(skipped)}")
     return records
 

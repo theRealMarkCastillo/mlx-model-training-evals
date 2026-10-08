@@ -273,10 +273,11 @@ def load_bfcl(questions_path, answers_path=None, *, max_records=None):
             skipped["multiple_calls"] += 1
             continue
         (function_name, acceptable_args), = ground_truth[0].items()
-        if function_name != functions[0]["name"]:
+        called = next((fn for fn in functions if fn["name"] == function_name), None)
+        if called is None:
             skipped["name_mismatch"] += 1
             continue
-        parameters = functions[0].get("parameters") or {}
+        parameters = called.get("parameters") or {}
         arguments = collapse_arguments(parameters, acceptable_args)
         if arguments is None:
             skipped["schema_mismatch"] = skipped.get("schema_mismatch", 0) + 1
@@ -284,7 +285,8 @@ def load_bfcl(questions_path, answers_path=None, *, max_records=None):
         question = " ".join(turn["content"] for turn in record["question"][0] if turn["role"] == "user")
         meta = {
             "tool": function_name, "bfcl_id": bfcl_id, "source": "bfcl",
-            "function": functions[0],
+            "function": called,                              # the function the ground truth calls
+            "functions": functions,                          # every function the model had to choose from
             "acceptable": {name: acceptable for name, acceptable in acceptable_args.items()},
         }
         records.append({

@@ -80,7 +80,7 @@ def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=(
             for record in tqdm(records, desc=variant, leave=False):
                 messages = record["messages"][:-1]   # system + user
                 if variant == "grammar":
-                    grammar = JsonSchemaGrammar(bfcl_envelope([record["meta"]["function"]]))
+                    grammar = JsonSchemaGrammar(bfcl_envelope(record["meta"].get("functions") or [record["meta"]["function"]]))
                     processor = SchemaGrammarProcessor(tokenizer, vocab_size, grammar)
                     generated = constrained_generate(model, tokenizer, messages, max_tokens, processor=processor)
                 else:

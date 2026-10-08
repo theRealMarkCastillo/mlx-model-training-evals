@@ -466,12 +466,32 @@ class SchemaGrammarProcessor(GrammarProcessor):
     def __init__(self, tokenizer, vocab_size=None, grammar=None, max_string_tokens=24, max_array_items=8):
         super().__init__(tokenizer, vocab_size, grammar, max_string_tokens=max_string_tokens,
                          max_array_items=max_array_items)
-        # Tokens that are pure whitespace, offered in the modes where JSON allows it so the
-        # model's natural spaced output is reachable.
-        self._whitespace = [token_id for token_id, text in self.token_text.items() if text.strip() == ""]
+        # Tokens made only of ASCII structural whitespace, offered in the modes where JSON
+        # allows it. Must match the grammar's WHITESPACE exactly — str.strip() would also
+        # match Unicode spaces (e.g. \xa0) the grammar rejects, which desynchronizes the mask.
+        self._whitespace = [token_id for token_id, text in self.token_text.items()
+                            if text and all(character in WHITESPACE for character in text)]
+        # Whitespace does not advance the grammar state, so a weak model can loop on it; cap
+        # the run exactly like strings and arrays are capped elsewhere.
+        self.whitespace_run = 0
+        self.max_whitespace_tokens = 4
+
+    def advance(self, token_ids):
+        for token_id in token_ids:
+            token_id = int(token_id)
+            if token_id in self.special_ids or self.grammar.complete:
+                continue
+            text = self.token_text.get(token_id, "")
+            if not self.grammar.feed(text):
+                self.invalid_tokens += 1
+            self.whitespace_run = self.whitespace_run + 1 if (text and all(c in WHITESPACE for c in text)) else 0
+
+    def _whitespace_allowed(self):
+        return self._whitespace if self.whitespace_run < self.max_whitespace_tokens else []
 
     def _state_signature(self, state):
-        return (state.mode, state.frames, state.text, state.letters, state.after_comma)
+        return (state.mode, state.frames, state.text, state.letters, state.after_comma,
+                self.whitespace_run >= self.max_whitespace_tokens)
 
     def allowed_token_ids(self):
         state = self.grammar.state
@@ -481,16 +501,16 @@ class SchemaGrammarProcessor(GrammarProcessor):
             return self._mask_cache[signature]
         mode = state.mode
         if mode == "start":
-            allowed = self._validated("{") + self._whitespace
+            allowed = self._validated("{") + self._whitespace_allowed()
         elif mode == "key":
-            allowed = self._validated('"}') + self._whitespace
+            allowed = self._validated('"}') + self._whitespace_allowed()
         elif mode == "in_key":
             allowed = self._literal_candidates(self.grammar.available_keys(state), state.text)
         elif mode == "colon":
-            allowed = self._validated(":") + self._whitespace
+            allowed = self._validated(":") + self._whitespace_allowed()
         elif mode == "value":
             node = self.grammar._value_node(state)
-            allowed = (self._validated(NODE_FIRST_CHARS[node["type"]]) if node is not None else []) + self._whitespace
+            allowed = (self._validated(NODE_FIRST_CHARS[node["type"]]) if node is not None else []) + self._whitespace_allowed()
         elif mode == "in_string":
             node = self.grammar._value_node(state)
             if node is not None and node["type"] == ENUM:
@@ -513,11 +533,11 @@ class SchemaGrammarProcessor(GrammarProcessor):
             allowed = self._validated(target[len(state.letters):len(state.letters) + 1])
         elif mode == "array":
             node = self.grammar._node(self.grammar._top(state).item)
-            allowed = self._validated(NODE_FIRST_CHARS[node["type"]]) + self._whitespace
+            allowed = self._validated(NODE_FIRST_CHARS[node["type"]]) + self._whitespace_allowed()
             if self.grammar._top(state).count == 0 and not state.after_comma:
                 allowed += self._validated("]")
         elif mode == "after":
-            allowed = self._validated(self._close_chars(state)) + self._whitespace
+            allowed = self._validated(self._close_chars(state)) + self._whitespace_allowed()
         elif self.grammar.complete:
             allowed = [self.eos_token_id] if self.eos_token_id is not None else []
         else:

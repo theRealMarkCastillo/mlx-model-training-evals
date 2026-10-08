@@ -157,6 +157,22 @@ class SchemaProcessorTests(unittest.TestCase):
         self.assertEqual(processor.invalid_tokens, 0, text)
         json.loads(text)
 
+    def test_whitespace_mask_matches_the_grammar_exactly(self):
+        tokenizer = FakeTokenizer()
+        tokenizer.id_to_text[900] = "\xa0"   # Unicode space: strip() would match it, the grammar must not
+        tokenizer.vocab_size = 901
+        tokenizer.all_special_ids = [tokenizer.eos_token_id]
+        processor = SchemaGrammarProcessor(tokenizer, len(tokenizer), envelope([{"name": "f", "parameters": FLAT}]))
+        whitespace = {tokenizer.decode([token_id]) for token_id in processor._whitespace}
+        self.assertNotIn("\xa0", whitespace)   # the mask must never offer a token the grammar rejects
+
+    def test_whitespace_run_is_capped(self):
+        processor = SchemaGrammarProcessor(FakeTokenizer(), len(FakeTokenizer()),
+                                           envelope([{"name": "f", "parameters": FLAT}]))
+        self.assertTrue(processor._whitespace_allowed())
+        processor.whitespace_run = processor.max_whitespace_tokens
+        self.assertEqual(processor._whitespace_allowed(), [])   # force structure after a run
+
     def test_every_bfcl_completion_is_accepted(self):
         records, _ = load_bfcl('/tmp/bfcl_simple.json', '/tmp/bfcl_simple_ans.json')
         self.assertGreater(len(records), 300)

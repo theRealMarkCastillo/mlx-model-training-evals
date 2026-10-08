@@ -40,6 +40,19 @@ ANSWER = {"id": "simple_0", "ground_truth": [
     {"calculate_triangle_area": {"base": [10], "height": [5], "unit": ["units", ""]}},
 ]}
 
+MULTI_QUESTION = {
+    "id": "multiple_0",
+    "question": [[{"role": "user", "content": "What is the area of a circle with radius 3?"}]],
+    "function": [
+        {"name": "triangle_area", "description": "Area of a triangle.",
+         "parameters": {"type": "dict", "properties": {"base": {"type": "integer"}, "height": {"type": "integer"}},
+                        "required": ["base", "height"]}},
+        {"name": "circle_area", "description": "Area of a circle.",
+         "parameters": {"type": "dict", "properties": {"radius": {"type": "integer"}}, "required": ["radius"]}},
+    ],
+}
+MULTI_ANSWER = {"id": "multiple_0", "ground_truth": [{"circle_area": {"radius": [3]}}]}
+
 
 def write_jsonl(path, records):
     path.write_text("".join(json.dumps(record) + "\n" for record in records))
@@ -97,6 +110,19 @@ class BfclLoaderTests(unittest.TestCase):
             records, skipped = load_bfcl(questions, answers)
         self.assertEqual(len(records), 1)
         self.assertEqual(skipped["multiple_calls"], 0)   # only counted for records that are processed
+
+    def test_multiple_functions_finds_the_called_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            questions, answers = Path(tmp) / "q.jsonl", Path(tmp) / "a.jsonl"
+            write_jsonl(questions, [MULTI_QUESTION])
+            write_jsonl(answers, [MULTI_ANSWER])
+            records, skipped = load_bfcl(questions, answers)
+        self.assertEqual(len(records), 1)
+        record = records[0]
+        self.assertEqual(record["meta"]["function"]["name"], "circle_area")   # the called one
+        self.assertEqual([f["name"] for f in record["meta"]["functions"]], ["triangle_area", "circle_area"])
+        self.assertEqual(record["expected"], {"tool": "circle_area", "parameters": {"radius": 3}})
+        self.assertEqual(skipped["name_mismatch"], 0)
 
 
 META = {"tool": "calculate_triangle_area",
