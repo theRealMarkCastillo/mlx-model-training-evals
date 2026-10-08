@@ -247,21 +247,22 @@ There is **no detectable forgetting**: the (non-significant) direction of the ef
 
 ### Does scale close the gap?
 
-The 3B table leaves open whether the story is specific to one model size. Repeating the prompting-only variants (base, few-shot, grammar — no training) on the cached 14B model:
+The 3B table leaves open whether the story is specific to one model size. Repeating the prompting-only variants (base, few-shot, grammar — no training) on the cached 14B and 32B models:
 
-| Set | 3B base | 14B base | 14B few-shot | 14B + grammar | 3B LoRA |
-|---|---:|---:|---:|---:|---:|
-| `test` | 0% | 65% [54–75] | 92% [84–96] | 57% [46–68] | 100% |
-| `challenge_abstain` | 0% | 0% | 100% | 100% | 95% |
-| `challenge_defaults` | 0% | 98% | 100% | 50% | 100% |
-| `challenge_entities` | 0% | 93% | 100% | 50% | 75% |
+| Set | 3B base | 14B base | 32B base | 3B few-shot | 14B few-shot | 32B few-shot | 3B + gram | 14B + gram | 32B + gram | 3B LoRA |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| `test` | 0% | 65% [54–75] | 76% [65–84] | 68% | 92% [84–96] | 97% [91–99] | 43% | 57% [46–68] | 47% [36–58] | 100% |
+| `challenge_abstain` | 0% | 0% | 0% | 100% | 100% | 100% | 100% | 100% | 100% | 95% |
+| `challenge_defaults` | 0% | 98% | 100% | 58% | 100% | 98% | 43% | 50% | 45% | 100% |
+| `challenge_entities` | 0% | 93% | 93% | 60% | 100% | 100% | 40% | 50% | 50% | 75% |
 
-Two things fall out of it, and the second is the important one:
+Three things fall out of it:
 
-* **Scale buys the format for free.** The 14B base model reads the system prompt and already produces the tool-call envelope on the holdout — 77% schema-valid, 65% exact match — where the 3B base scores 0%. Few-shot 14B reaches 92%, within the noise of the 3B LoRA's 100%, with no training and no adapter.
-* **Constrained decoding helps exactly where the format fails, and costs exactly where it doesn't.** On `challenge_abstain`, where the base models have no example of the envelope, the grammar lifts both 3B and 14B to 100%. But on the sets the 14B already handles — `test`, `defaults`, `entities` — the grammar *lowers* it (65% → 57%, 98% → 50%, 93% → 50%). The grammar guarantees validity, not completeness: it allows omitting optional parameters, and once it changes the decode path the 14B model starts leaving them out (`omitted_default` failures go from 1 to 14). A model that already writes the contract does not need it forced, and the forcing has a cost.
+* **Scale buys the format for free.** The base model reads the system prompt and produces the tool-call envelope on its own: 0% → 65% → 76% exact match on the holdout across 3B → 14B → 32B (schema validity 0% → 77% → 84%). The 3B result was not a capability gap; it was a size gap.
+* **Few-shot scales to match the trained adapter.** Few-shot exact match on the holdout goes 68% → 92% → 97%, and the 32B few-shot number is within the noise of the 3B LoRA's 100% — no training, no adapter. This is the cheapest way to beat the headline result, and it is paid in prompt tokens (985 vs 666) on every request.
+* **Constrained decoding is a scalpel, not a ladder.** It is the best variant on `challenge_abstain` at every size (0% → 100%: when the envelope is missing, the model fails to refuse; when it is guaranteed, the model refuses correctly). Everywhere else the base model already writes the contract, the grammar *lowers* it — on `test` 65% → 57% at 14B and 76% → 47% at 32B, on `defaults` 98–100% → 45–50%. The grammar guarantees validity but not completeness (it allows omitting optionals, and once it changes the decode path the model omits them: `omitted_default` failures jump from 1 to 14 at 14B), and at 32B it even produced two truncated-unfinished objects (schema validity 97%, not 100%), because the strict envelope is longer than the model's natural answer and the token budget runs out.
 
-So the earlier sentence needs a qualifier: grammar buys the contract *when the model does not already have it*; training buys the decisions at every size. Full per-size numbers are regenerable from [`docs/reference-run/capacity.json`](docs/reference-run/capacity.json) (`scripts/export_capacity.py`).
+So the earlier sentence needs a qualifier: grammar buys the contract *when the model does not already have it*; training buys the decisions at every size, and so — at larger sizes — does few-shot prompting. Full per-size numbers are regenerable from [`docs/reference-run/capacity.json`](docs/reference-run/capacity.json) (`scripts/export_capacity.py`).
 
 ## Teaching tools
 

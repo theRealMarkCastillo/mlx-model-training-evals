@@ -322,6 +322,146 @@
           }
         }
       }
+    },
+    "32b": {
+      "model": "mlx-community/Qwen2.5-32B-Instruct-4bit",
+      "run_id": "20261008T015335934780Z-1a63bfef",
+      "variants": [
+        "base",
+        "fewshot",
+        "grammar"
+      ],
+      "constrained": true,
+      "datasets": {
+        "test": {
+          "base": {
+            "n": 75,
+            "exact_match_rate": 0.76,
+            "schema_valid_rate": 0.84,
+            "tool_accuracy": 0.88,
+            "ci95": [
+              0.6522102034171385,
+              0.8424525127124175
+            ]
+          },
+          "fewshot": {
+            "n": 75,
+            "exact_match_rate": 0.9733333333333334,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 0.9733333333333334,
+            "ci95": [
+              0.9078833515671513,
+              0.9926564649763995
+            ]
+          },
+          "grammar": {
+            "n": 75,
+            "exact_match_rate": 0.4666666666666667,
+            "schema_valid_rate": 0.9733333333333334,
+            "tool_accuracy": 0.9066666666666666,
+            "ci95": [
+              0.35815509458811656,
+              0.5784266084721967
+            ]
+          }
+        },
+        "challenge_abstain": {
+          "base": {
+            "n": 40,
+            "exact_match_rate": 0.0,
+            "schema_valid_rate": 0.0,
+            "tool_accuracy": 0.3,
+            "ci95": [
+              0.0,
+              0.08762453925039232
+            ]
+          },
+          "fewshot": {
+            "n": 40,
+            "exact_match_rate": 1.0,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.9123754607496077,
+              1.0
+            ]
+          },
+          "grammar": {
+            "n": 40,
+            "exact_match_rate": 1.0,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.9123754607496077,
+              1.0
+            ]
+          }
+        },
+        "challenge_defaults": {
+          "base": {
+            "n": 40,
+            "exact_match_rate": 1.0,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.9123754607496077,
+              1.0
+            ]
+          },
+          "fewshot": {
+            "n": 40,
+            "exact_match_rate": 0.975,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 0.975,
+            "ci95": [
+              0.8711834051199223,
+              0.9955732825922052
+            ]
+          },
+          "grammar": {
+            "n": 40,
+            "exact_match_rate": 0.45,
+            "schema_valid_rate": 0.975,
+            "tool_accuracy": 0.95,
+            "ci95": [
+              0.30705075280944694,
+              0.6017117011155924
+            ]
+          }
+        },
+        "challenge_entities": {
+          "base": {
+            "n": 40,
+            "exact_match_rate": 0.925,
+            "schema_valid_rate": 0.925,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.8013546984090248,
+              0.9741644432281419
+            ]
+          },
+          "fewshot": {
+            "n": 40,
+            "exact_match_rate": 1.0,
+            "schema_valid_rate": 1.0,
+            "tool_accuracy": 1.0,
+            "ci95": [
+              0.9123754607496077,
+              1.0
+            ]
+          },
+          "grammar": {
+            "n": 40,
+            "exact_match_rate": 0.5,
+            "schema_valid_rate": 0.95,
+            "tool_accuracy": 0.95,
+            "ci95": [
+              0.35199278797099753,
+              0.6480072120290025
+            ]
+          }
+        }
+      }
     }
   }
 }
