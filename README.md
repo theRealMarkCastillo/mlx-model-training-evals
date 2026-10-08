@@ -264,6 +264,20 @@ Three things fall out of it:
 
 So the earlier sentence needs a qualifier: grammar buys the contract *when the model does not already have it*; training buys the decisions at every size, and so — at larger sizes — does few-shot prompting. Full per-size numbers are regenerable from [`docs/reference-run/capacity.json`](docs/reference-run/capacity.json) (`scripts/export_capacity.py`).
 
+### Real data: the BFCL pilot
+
+The synthetic task could be protecting the conclusion, so the same comparison is re-run on real function schemas from [BFCL v3 `simple`](https://huggingface.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard) (Apache-2.0): 395 records, one real function per record, evaluated with the same `{"tool","parameters"}` envelope and a per-record system prompt, but scored BFCL-style (name + arguments in the ground-truth acceptable sets, required present) rather than exact match. Run it with `python main.py bfcl`; details and provenance are in [`docs/real-data.md`](docs/real-data.md).
+
+| Metric | Base (zero-shot) | Base + JSON grammar |
+|---|---:|---:|
+| schema-valid | 97.2% [95–98] | 94.4% [92–96] |
+| tool accuracy | 98.2% [96–99] | 94.7% [92–96] |
+| **argument accuracy** | **81.5%** [77–85] | **37.0%** [32–42] |
+
+The 3B base model already writes the contract: a clear per-record prompt — function name, typed parameters, an envelope example — gets 97% of outputs schema-valid and 82% of arguments right, with no training and no grammar. So the grammar has nothing left to fix, and its constraints actively cost: argument accuracy *drops* to 37% (McNemar p ≈ 0). The failures are visible and consistent — sign flips (`base: 4` → `-4`) and the model's native `<tool_call>`/single-quote tokens leaking into string values — because this grammar forbids whitespace and forces a compact, enum-pinned path whose tokenization differs from the model's natural (already-correct) one.
+
+Two honest caveats before over-reading that number: this grammar is a deliberately minimal one (no whitespace, strings capped at 24 tokens, the tool forced to the record's function name), so a production whitespace-allowing grammar would degrade *less* — the 21/395 outputs that ran out of the 200-token budget are largely this artifact. And `simple` is the easiest category; `multiple` (tool choice among several) and `irrelevance` (abstention — where the grammar was the surprise winner at every size) are the natural next steps. What the pilot does settle is the direction: grammar-constrained decoding is a fix for *missing* format, and on real schemas the format was never missing.
+
 ## Teaching tools
 
 ```bash

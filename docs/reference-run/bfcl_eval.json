@@ -1,0 +1,88 @@
+{
+  "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+  "preset": "3b",
+  "records_path": "/Users/markcastillo/git/mlx-model-training-evals/data/bfcl_simple.jsonl",
+  "variants": [
+    "base",
+    "grammar"
+  ],
+  "max_tokens": 200,
+  "paired": {
+    "is_schema_valid": {
+      "both_correct": 362,
+      "only_a": 22,
+      "only_b": 11,
+      "neither": 0,
+      "p_value": 0.08014331245794892
+    },
+    "tool_correct": {
+      "both_correct": 367,
+      "only_a": 21,
+      "only_b": 7,
+      "neither": 0,
+      "p_value": 0.012540951371192932
+    },
+    "args_correct": {
+      "both_correct": 137,
+      "only_a": 185,
+      "only_b": 9,
+      "neither": 64,
+      "p_value": 7.434991592290201e-44
+    }
+  },
+  "datasets": {
+    "bfcl_simple": {
+      "base": {
+        "num_samples": 395,
+        "intervals": {
+          "schema_valid_rate": [
+            0.9508279487123457,
+            0.9843804147081199
+          ],
+          "tool_accuracy": [
+            0.9638765812550492,
+            0.9913898703889117
+          ],
+          "arg_accuracy": [
+            0.7739399582099777,
+            0.8503680377463116
+          ]
+        },
+        "schema_valid_rate": 0.9721518987341772,
+        "tool_accuracy": 0.9822784810126582,
+        "arg_accuracy": 0.8151898734177215,
+        "error_categories": {
+          "parameters": 59,
+          "json": 4,
+          "schema": 7,
+          "tool": 3
+        }
+      },
+      "grammar": {
+        "num_samples": 395,
+        "intervals": {
+          "schema_valid_rate": [
+            0.9171137201358125,
+            0.9629349006700413
+          ],
+          "tool_accuracy": [
+            0.9200955640833178,
+            0.9649675787784099
+          ],
+          "arg_accuracy": [
+            0.3234859827784227,
+            0.41826613134407614
+          ]
+        },
+        "schema_valid_rate": 0.9443037974683545,
+        "tool_accuracy": 0.9468354430379747,
+        "arg_accuracy": 0.369620253164557,
+        "error_categories": {
+          "parameters": 227,
+          "schema": 1,
+          "json": 21
+        }
+      }
+    }
+  }
+}

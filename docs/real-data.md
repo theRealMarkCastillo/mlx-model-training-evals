@@ -2,7 +2,7 @@
 
 Every honest section of this repo says the same thing: the task is synthetic. Wording, entities and request kinds come from small templates, so the numbers say something about *this* pipeline, not about production traffic. This document scopes what it would take to put a real benchmark behind the same measurements, and what each option costs.
 
-Nothing here is implemented yet. It exists so the decision is concrete rather than aspirational.
+**Status (2026-10-07):** Option A is implemented — the loader (`src/bfcl.py`), the general JSON-Schema grammar (`src/schema_grammar.py`), and the eval harness (`src/bfcl_eval.py`, run with `python main.py bfcl`) — and the pilot has been run on BFCL v3 `simple`. See the *Results* section and `docs/reference-run/bfcl_eval.json`.
 
 ---
 
@@ -40,17 +40,31 @@ That last row is the honest cost of moving to real data: some of the axes this r
 
 **Goal:** answer "does the grammar-vs-training conclusion hold on real schemas?" without building a training pipeline for a new task.
 
-Work items, in order:
+Work items (all done):
 
-1. **Loader** (`src/bfcl.py`): read the JSONL, build one record per line with `{system, user, assistant}` in this repo's envelope (`{"tool": ..., "parameters": ...}`), taking the function list from the record and the reference call from `possible_answer/`. Cache a small subset in `data/` so runs stay reproducible offline, exactly like the synthetic sets.
-2. **Per-record system prompt.** This is the real structural change: the pipeline assumes one fixed `SYSTEM_PROMPT`, while BFCL gives each record its own function documents. The prompt generator in `src/schema.py` becomes a function of the record's schemas; `show-mask`, training and the few-shot builder all need to read it from the record instead of importing a constant.
-3. **Generalize the grammar** (`src/json_grammar.py`): the token-masking machinery in `src/constrained.py` is already schema-agnostic — it asks the grammar for allowed keys, value kinds and completion. What is task-specific is `ToolCallGrammar`: fixed `TOP_KEYS`, `depth <= 2`, `outer_keys` as a single slot. A general version needs a frame stack for nesting, a per-record function table, and a JSON-Schema subset: `object`/`array`/`string`/`integer`/`number`/`boolean`, `enum`, `required`, `additionalProperties: false`. Records using `$ref`, `anyOf`/`oneOf` or exotic types get skipped and counted.
-4. **Metrics.** Port BFCL's AST check faithfully or, to start, implement the documented approximation: function name equality plus argument-dict equality with BFCL's tolerance for omitted optional arguments. Either way the report keeps this repo's shape (Wilson intervals, per-category breakdowns, failure taxonomy) so numbers stay comparable to the synthetic results.
-5. **Run it:** base / few-shot / grammar on Simple, then `multiple` (tool choice) and `irrelevance` (abstention).
+1. ✅ **Loader** (`src/bfcl.py`): reads the JSONL, builds one record per line with `{system, user, assistant}` in this repo's envelope, taking the function list from the record and the reference call from `possible_answer/`. A 395-record subset is committed under `data/bfcl_simple.jsonl` (5 of 400 skipped: 3 unsupported schema features, 1 schema/value mismatch, 1 function-name mismatch — each counted, never guessed).
+2. ✅ **Per-record system prompt** (`build_system_prompt`): the pipeline's one fixed `SYSTEM_PROMPT` becomes a function of the record's function list.
+3. ✅ **Generalize the grammar** (`src/schema_grammar.py`): a frame-stack `JsonSchemaGrammar` supporting nested objects, typed arrays, floats/scientific notation, negative numbers, empty arrays, and a `dep` node so a multi-function record's `parameters` schema resolves on the written `tool`. `SchemaGrammarProcessor` subclasses the token-mask machinery; only the mask decision and cache key change.
+4. ✅ **Metrics** (`score_bfcl_call`): BFCL-style scoring — function name equality plus "every provided argument's value is in the ground-truth acceptable set, and every required argument is present" — with the report keeping Wilson intervals and a McNemar paired test.
+5. ✅ **Run it** (`python main.py bfcl`): base vs grammar on Simple; `multiple` and `irrelevance` are the next categories.
 
 **Cost:** roughly 2–4 days of work, no training compute (all three variants are prompting-only). Inference is cheap: 400 records × 3 variants ≈ 1,200 generations, under an hour on the 3B preset.
 
 **Risks and honest limits:** 400 records per category means ±5-point intervals; skipping unsupported schema features will bias the surviving subset and must be reported; our envelope differs from BFCL's canonical `[{"name": ..., "arguments": {...}}]`, so results are *internally* comparable to the synthetic task and only qualitatively comparable to the leaderboard.
+
+## Results (BFCL v3 simple, 395 records, 3B base)
+
+Run with `python main.py bfcl`; the full per-sample report is `docs/reference-run/bfcl_eval.json`.
+
+| Metric | Base (zero-shot) | Base + JSON grammar |
+|---|---:|---:|
+| schema-valid | 97.2% [95–98] | 94.4% [92–96] |
+| tool accuracy | 98.2% [96–99] | 94.7% [92–96] |
+| argument accuracy | **81.5%** [77–85] | **37.0%** [32–42] |
+
+**The conclusion does not generalize as stated — it generalizes as a warning.** The 3B base model already writes the contract on real schemas: a clear per-record prompt gets 97% of outputs schema-valid and 82% of arguments right with no training and no grammar. So grammar-constrained decoding has nothing to fix, and its constraints cost — argument accuracy drops to 37% (McNemar p ≈ 0). The failures are visible and consistent: sign flips (`base: 4` → `-4`) and the model's native `<tool_call>`/single-quote tokens leaking into string values, because the grammar forbids whitespace and forces a compact, enum-pinned path whose tokenization differs from the model's natural one.
+
+Honest limits: this grammar is a minimal one (no whitespace, strings capped at 24 tokens, tool forced to the record's function name), so a production whitespace-allowing grammar would degrade *less* — the 21/395 outputs that hit the 200-token budget are largely this artifact. And `simple` is the easiest category; `multiple` (tool choice) and `irrelevance` (abstention — where the grammar won at every size on the synthetic task) are the natural next steps. The direction is the finding: grammar buys the contract *only when the model lacks it*, and on real schemas the format was never missing.
 
 ## Option B — BFCL (or ToolBench) as a full second task
 
@@ -68,10 +82,9 @@ Multi-tool requests, nested parameters, ambiguous instructions, contradictions �
 
 ## Recommendation
 
-Do **Option A** first. It is the cheapest way to falsify or confirm the repo's headline claim — "decoding buys the contract, training buys the decisions" — on schemas this repo did not write, and it leaves the synthetic task intact as the controlled experiment it was designed to be.
+**Option A is done** (see *Results*). It settled the direction — on real schemas the 3B base already writes the contract, so grammar-constrained decoding has nothing to fix and its constraints cost — while leaving the synthetic task intact as the controlled experiment.
 
-Decisions needed before starting:
+The next step, if this is worth pursuing, is to close the two obvious gaps before believing the "grammar hurts" number is general:
 
-1. **Option A, B or C** (or A now, B later).
-2. **Envelope:** keep `{"tool": ..., "parameters": ...}` for comparability with the synthetic results (recommended), or adopt BFCL's list-of-calls shape for leaderboard-adjacent numbers.
-3. **Scope:** the eval-only pilot (recommended), or commit to a training run on real schemas too.
+1. **Allow whitespace in the grammar.** The largest suspected artifact is the compact, whitespace-free path; a production grammar allows `{ "tool": ... }` spacing and would degrade less.
+2. **Run `irrelevance` (and `multiple`).** Abstention is where the grammar was the surprise winner at every size on the synthetic task; if it wins there on real data too, the honest story is "grammar buys *refusal*, not *correctness*" — which would be a cleaner, more useful conclusion than a single average.

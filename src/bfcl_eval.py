@@ -66,6 +66,7 @@ def summarize_bfcl(results):
 def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=("base", "grammar"),
                   max_tokens=200, max_records=None, output_dir=None, quiet=False):
     records = load_bfcl_records(records_path or DATA_PATH, max_records)
+    preset = preset or "3b"
     model_name = model_name or PRESETS[preset].model
     console.print(f"[bold]BFCL simple: {len(records)} records, model {model_name}[/bold]")
     model, tokenizer = mlx_lm.load(model_name)
@@ -105,7 +106,13 @@ def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=(
     if output_dir:
         path = Path(output_dir) / "bfcl_eval.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(report, indent=2) + "\n")
+        compact = {key: value for key, value in report.items() if key != "datasets"}
+        compact["datasets"] = {
+            name: {variant: {key: value for key, value in summary.items() if key != "sample_results"}
+                   for variant, summary in by_variant.items()}
+            for name, by_variant in report["datasets"].items()
+        }
+        path.write_text(json.dumps(compact, indent=2) + "\n")
         console.print(f"Saved {path}")
     if not quiet:
         print_bfcl_report(datasets["bfcl_simple"], report.get("paired"))
