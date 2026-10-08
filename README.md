@@ -360,7 +360,7 @@ Defaults resolve **only** through `latest.json` pointers. If no training run has
 | `src/ablation.py`, `src/benchmark.py`, `src/fuse.py` | sweeps, speed, fusion |
 | `src/runs.py` | run directories, manifests, latest pointers |
 
-Docs: [`docs/concepts.md`](docs/concepts.md) explains every number this repo prints; [`docs/exercise-solutions.md`](docs/exercise-solutions.md) works through the notebook exercises (masking, starved data, no abstention training, overfitting, scaling up); [`docs/extending.md`](docs/extending.md) adds a sixth tool end to end; [`docs/REVIEW.md`](docs/REVIEW.md) is the review and roadmap behind the current shape of the project.
+Docs: [`docs/concepts.md`](docs/concepts.md) explains every number this repo prints; [`docs/exercise-solutions.md`](docs/exercise-solutions.md) works through the notebook exercises (masking, starved data, no abstention training, overfitting, scaling up, grammar decoding, seed spread, forgetting, sampling); [`docs/extending.md`](docs/extending.md) adds a sixth tool end to end; [`docs/real-data.md`](docs/real-data.md) scopes putting real function-calling data (BFCL) behind the same measurements — planned, not implemented; [`docs/REVIEW.md`](docs/REVIEW.md) is the review and roadmap behind the current shape of the project.
 
 ## Development
 
