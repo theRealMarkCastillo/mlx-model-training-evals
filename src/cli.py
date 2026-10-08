@@ -60,6 +60,15 @@ def cmd_eval(args):
     )
 
 
+def cmd_bfcl(args):
+    from src.bfcl_eval import run_bfcl_eval
+    run_bfcl_eval(
+        model_name=args.model, preset=args.preset, records_path=args.records,
+        variants=args.variants, max_tokens=args.max_tokens, max_records=args.samples,
+        output_dir=args.output_dir,
+    )
+
+
 def cmd_forgetting(args):
     from src.forgetting import run_forgetting_check
     run_forgetting_check(
@@ -197,6 +206,16 @@ def build_parser():
     p.add_argument("--repeats", type=positive_int, default=1,
                    help="Draws per record; >1 adds a pass@k summary of what retrying recovers")
     p.set_defaults(func=cmd_eval)
+
+    p = sub.add_parser("bfcl", help="BFCL pilot: base model vs grammar-constrained decoding on real schemas")
+    add_preset_argument(p)
+    p.add_argument("--model", help="Custom base model path or Hugging Face repository (default: the preset)")
+    p.add_argument("--records", help="Converted BFCL JSONL (default: data/bfcl_simple.jsonl)")
+    p.add_argument("--samples", type=positive_int, help="Subset size for a quick smoke run (default: all)")
+    p.add_argument("--max-tokens", type=positive_int, default=200)
+    p.add_argument("--variants", nargs="+", default=["base", "grammar"], choices=["base", "grammar"])
+    p.add_argument("--output-dir", help="Directory for the JSON report (default: no file)")
+    p.set_defaults(func=cmd_bfcl)
 
     p = sub.add_parser("forgetting", help="Compare base vs LoRA on general requests (catastrophic forgetting)")
     _model_selection(p)

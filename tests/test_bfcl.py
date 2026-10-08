@@ -8,7 +8,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from src.bfcl import build_system_prompt, canonical_arguments, canonical_completion, is_supported, load_bfcl
+from src.bfcl import (
+    build_system_prompt,
+    canonical_arguments,
+    canonical_completion,
+    is_supported,
+    load_bfcl,
+    parse_bfcl_call,
+    score_bfcl_call,
+)
 
 QUESTION = {
     "id": "simple_0",
@@ -53,7 +61,8 @@ class BfclLoaderTests(unittest.TestCase):
             write_jsonl(questions, [QUESTION])
             write_jsonl(answers, [ANSWER])
             records, skipped = load_bfcl(questions, answers)
-        self.assertEqual(skipped, {"no_answer": 0, "unsupported_schema": 0, "multiple_calls": 0, "schema_mismatch": 0})
+        self.assertEqual(skipped, {"no_answer": 0, "unsupported_schema": 0, "multiple_calls": 0,
+                                   "schema_mismatch": 0, "name_mismatch": 0})
         record = records[0]
         self.assertEqual(record["expected"], {"tool": "calculate_triangle_area",
                                               "parameters": {"base": 10, "height": 5, "unit": "units"}})
@@ -87,6 +96,47 @@ class BfclLoaderTests(unittest.TestCase):
             records, skipped = load_bfcl(questions, answers)
         self.assertEqual(len(records), 1)
         self.assertEqual(skipped["multiple_calls"], 0)   # only counted for records that are processed
+
+
+META = {"tool": "calculate_triangle_area",
+        "acceptable": {"base": [10], "height": [5], "unit": ["units", ""]},
+        "function": QUESTION["function"][0]}
+
+
+class BfclScoringTests(unittest.TestCase):
+    def test_parse_recovers_embedded_json_and_rejects_garbage(self):
+        self.assertEqual(parse_bfcl_call('{"tool":"f","parameters":{"x":1}}'),
+                         {"tool": "f", "parameters": {"x": 1}})
+        self.assertEqual(parse_bfcl_call('Here is the answer: ```json\n{"tool":"f","parameters":{}}\n```'),
+                         {"tool": "f", "parameters": {}})
+        self.assertIsNone(parse_bfcl_call("no json here"))
+        self.assertIsNone(parse_bfcl_call('{"tool":"f","tool":"g"}'))   # duplicate key
+
+    def test_score_accepts_the_canonical_call(self):
+        parsed = {"tool": "calculate_triangle_area", "parameters": {"base": 10, "height": 5, "unit": "units"}}
+        scored = score_bfcl_call(parsed, META)
+        self.assertTrue(scored["is_schema_valid"])
+        self.assertTrue(scored["tool_correct"])
+        self.assertTrue(scored["args_correct"])
+        self.assertIsNone(scored["error_category"])
+
+    def test_score_accepts_an_alternative_value_and_omitted_optional(self):
+        parsed = {"tool": "calculate_triangle_area", "parameters": {"base": 10, "height": 5}}
+        scored = score_bfcl_call(parsed, META)
+        self.assertTrue(scored["args_correct"])   # unit omitted is acceptable ("" in the set)
+
+    def test_score_flags_wrong_tool_wrong_value_and_missing_required(self):
+        self.assertFalse(score_bfcl_call({"tool": "other", "parameters": {"base": 10, "height": 5}}, META)["tool_correct"])
+        wrong_tool = score_bfcl_call({"tool": "other", "parameters": {"base": 10, "height": 5}}, META)
+        self.assertEqual(wrong_tool["error_category"], "tool")
+        bad_value = score_bfcl_call({"tool": "calculate_triangle_area", "parameters": {"base": 99, "height": 5}}, META)
+        self.assertEqual(bad_value["error_category"], "parameters")
+        missing = score_bfcl_call({"tool": "calculate_triangle_area", "parameters": {"base": 10}}, META)
+        self.assertEqual(missing["error_category"], "schema")
+
+    def test_score_rejects_wrong_parameter_type(self):
+        parsed = {"tool": "calculate_triangle_area", "parameters": {"base": "10", "height": 5}}
+        self.assertFalse(score_bfcl_call(parsed, META)["is_schema_valid"])
 
 
 if __name__ == "__main__":

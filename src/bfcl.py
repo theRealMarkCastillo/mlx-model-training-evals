@@ -153,6 +153,11 @@ def _matches_type(value, schema):
     return True
 
 
+def matches_type(value, schema):
+    """True if `value` is a legal instance of `schema` (the schema's `type` field)."""
+    return _matches_type(value, schema)
+
+
 def collapse_arguments(parameters, acceptable_args):
     """Schema-aware canonical arguments, or None if a value contradicts its schema.
 
@@ -183,6 +188,59 @@ def canonical_completion(function_name, acceptable_args, parameters=None):
     return json.dumps({"tool": function_name, "parameters": arguments}, separators=(",", ":"), ensure_ascii=False)
 
 
+def parse_bfcl_call(raw):
+    """Recover a `{tool, parameters}` JSON object from model output, or None.
+
+    Mirrors `src.schema.parse_and_validate`'s strictness (duplicate keys and non-finite
+    numbers rejected) but stops at the envelope: the function name and parameter schema are
+    arbitrary here, so no Pydantic model is applied.
+    """
+    from src.schema import _finite_float, _first_embedded_object, _invalid_constant, _unique_object
+
+    decoder = json.JSONDecoder(object_pairs_hook=_unique_object, parse_constant=_invalid_constant,
+                               parse_float=_finite_float)
+    text = raw.strip()
+    try:
+        try:
+            parsed = decoder.decode(text)
+        except json.JSONDecodeError:
+            parsed = _first_embedded_object(decoder, text)
+        if isinstance(parsed, dict):
+            return parsed
+    except (ValueError, RecursionError):
+        return None
+    return None
+
+
+def score_bfcl_call(parsed, meta):
+    """Score one parsed call against BFCL ground truth (acceptable-value sets).
+
+    A call is right when the function name matches and every provided argument's value is in
+    the ground-truth acceptable set, with every required argument present — BFCL's answers
+    are sets of alternatives, so exact match is the wrong standard.
+    """
+    expected_tool = meta["tool"]
+    acceptable = meta.get("acceptable") or {}
+    schema = (meta.get("function") or {}).get("parameters") or {}
+    required = set(schema.get("required") or [])
+    properties = schema.get("properties") or {}
+
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("tool"), str) or \
+            not isinstance(parsed.get("parameters"), dict):
+        return {"is_schema_valid": False, "tool_correct": False, "args_correct": False, "error_category": "json"}
+
+    tool = parsed["tool"]
+    params = parsed["parameters"]
+    schema_valid = all(name in params for name in required) and all(
+        matches_type(params[name], properties.get(name) or {}) for name in params)
+    tool_correct = tool == expected_tool
+    args_correct = tool_correct and schema_valid and all(
+        params[name] in acceptable.get(name, []) for name in params)
+    category = None if args_correct else ("schema" if not schema_valid else "tool" if not tool_correct else "parameters")
+    return {"is_schema_valid": schema_valid, "tool_correct": tool_correct, "args_correct": args_correct,
+            "error_category": category}
+
+
 def load_bfcl(questions_path, answers_path=None, *, max_records=None):
     """Convert a BFCL category into this repo's chat records.
 
@@ -194,7 +252,8 @@ def load_bfcl(questions_path, answers_path=None, *, max_records=None):
     answers = {}
     if answers_path:
         answers = {rec["id"]: rec for rec in _read_jsonl(Path(answers_path))}
-    records, skipped = [], {"no_answer": 0, "unsupported_schema": 0, "multiple_calls": 0, "schema_mismatch": 0}
+    records, skipped = [], {"no_answer": 0, "unsupported_schema": 0, "multiple_calls": 0,
+                            "schema_mismatch": 0, "name_mismatch": 0}
     for record in _read_jsonl(questions_path):
         if max_records is not None and len(records) >= max_records:
             break
@@ -212,6 +271,9 @@ def load_bfcl(questions_path, answers_path=None, *, max_records=None):
             skipped["multiple_calls"] += 1
             continue
         (function_name, acceptable_args), = ground_truth[0].items()
+        if function_name != functions[0]["name"]:
+            skipped["name_mismatch"] += 1
+            continue
         parameters = functions[0].get("parameters") or {}
         arguments = collapse_arguments(parameters, acceptable_args)
         if arguments is None:

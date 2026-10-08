@@ -29,7 +29,7 @@ from typing import NamedTuple
 from src.constrained import DIGITS, NAME_CHARS, GrammarProcessor
 
 # Node kinds understood by the state machine.
-OBJECT, ARRAY, STRING, INT, NUMBER, BOOL, DEP = ("object", "array", "string", "int", "number", "bool", "dep")
+OBJECT, ARRAY, STRING, INT, NUMBER, BOOL, DEP, ENUM = ("object", "array", "string", "int", "number", "bool", "dep", "enum")
 
 
 class ObjectFrame(NamedTuple):
@@ -101,7 +101,7 @@ def bfcl_envelope(functions):
     `parameters` is a dependent node that resolves on the written `tool` value, so the
     grammar masks the right parameter keys for whichever function is being emitted.
     """
-    tool_node = {"type": STRING}  # free string: the model names the function; the evaluator checks it
+    tool_node = {"type": ENUM, "values": tuple(function["name"] for function in functions)}
     if len(functions) == 1:
         params_node = bfcl_node(functions[0].get("parameters") or {"type": "dict", "properties": {}})
     else:
@@ -292,7 +292,7 @@ class JsonSchemaGrammar:
                 return None
             return state._replace(mode="array", frames=state.frames + (ArrayFrame(self._intern(node["items"]), 0, False),),
                                   after_comma=False)
-        if kind == STRING:
+        if kind == STRING or kind == ENUM:
             return state._replace(mode="in_string", text="") if character == '"' else None
         if kind in (INT, NUMBER):
             if character not in "-0123456789":
@@ -318,7 +318,7 @@ class JsonSchemaGrammar:
                 return None
             return state._replace(mode="array", frames=state.frames + (ArrayFrame(self._intern(node["items"]), 0, False),),
                                   after_comma=False)
-        if kind == STRING:
+        if kind == STRING or kind == ENUM:
             return state._replace(mode="in_string", text="") if character == '"' else None
         if kind in (INT, NUMBER):
             if character not in "-0123456789":
@@ -368,7 +368,7 @@ class JsonSchemaGrammar:
 
     def _finish_string(self, state):
         node = self._value_node(state)
-        if node is not None and node["type"] == STRING and node.get("values") and state.text not in node["values"]:
+        if node is not None and node["type"] == ENUM and state.text not in node.get("values", ()):
             return None
         return self._complete_scalar(state._replace(text=""), state.text)
 
@@ -446,7 +446,7 @@ def _freeze(node):
 # --------------------------------------------------------------------------------------
 
 NODE_FIRST_CHARS = {
-    STRING: '"', INT: "-0123456789", NUMBER: "-0123456789", BOOL: "tf", OBJECT: "{", ARRAY: "[",
+    STRING: '"', ENUM: '"', INT: "-0123456789", NUMBER: "-0123456789", BOOL: "tf", OBJECT: "{", ARRAY: "[",
 }
 
 
@@ -480,7 +480,10 @@ class SchemaGrammarProcessor(GrammarProcessor):
             node = self.grammar._value_node(state)
             allowed = self._validated(NODE_FIRST_CHARS[node["type"]]) if node is not None else []
         elif mode == "in_string":
-            if self.string_run >= self.max_string_tokens:
+            node = self.grammar._value_node(state)
+            if node is not None and node["type"] == ENUM:
+                allowed = self._literal_candidates(node.get("values", ()), state.text)
+            elif self.string_run >= self.max_string_tokens:
                 allowed = list(self._text_index.get('"', ()))   # close a runaway free string
             else:
                 allowed = self._string_safe + list(self._text_index.get('"', ()))
