@@ -1,0 +1,88 @@
+{
+  "model": "mlx-community/Qwen2.5-3B-Instruct-8bit",
+  "preset": "3b",
+  "records_path": "/Users/markcastillo/git/mlx-model-training-evals/data/bfcl_simple.jsonl",
+  "variants": [
+    "base",
+    "grammar"
+  ],
+  "max_tokens": 200,
+  "prompt_style": "full",
+  "adapter_path": null,
+  "paired": {
+    "is_schema_valid": {
+      "both_correct": 370,
+      "only_a": 23,
+      "only_b": 2,
+      "neither": 0,
+      "p_value": 1.9431114196777344e-05
+    },
+    "tool_correct": {
+      "both_correct": 371,
+      "only_a": 23,
+      "only_b": 1,
+      "neither": 0,
+      "p_value": 2.9802322387695312e-06
+    },
+    "args_correct": {
+      "both_correct": 132,
+      "only_a": 211,
+      "only_b": 2,
+      "neither": 50,
+      "p_value": 3.4627676809817173e-60
+    }
+  },
+  "datasets": {
+    "bfcl_simple": {
+      "base": {
+        "num_samples": 395,
+        "intervals": {
+          "schema_valid_rate": [
+            0.9817286698432345,
+            0.9986103920800954
+          ],
+          "tool_accuracy": [
+            0.9858006099610122,
+            0.9995529740181917
+          ],
+          "arg_accuracy": [
+            0.8314349640947679,
+            0.8981779950348715
+          ]
+        },
+        "schema_valid_rate": 0.9949367088607595,
+        "tool_accuracy": 0.9974683544303797,
+        "arg_accuracy": 0.8683544303797468,
+        "error_categories": {
+          "parameters": 50,
+          "json": 1,
+          "schema": 1
+        }
+      },
+      "grammar": {
+        "num_samples": 395,
+        "intervals": {
+          "schema_valid_rate": [
+            0.9141441250766921,
+            0.960889973673288
+          ],
+          "tool_accuracy": [
+            0.9141441250766921,
+            0.960889973673288
+          ],
+          "arg_accuracy": [
+            0.29429754774825606,
+            0.3872803017037569
+          ]
+        },
+        "schema_valid_rate": 0.9417721518987342,
+        "tool_accuracy": 0.9417721518987342,
+        "arg_accuracy": 0.3392405063291139,
+        "error_categories": {
+          "parameters": 238,
+          "json": 23
+        }
+      }
+    }
+  }
+}

@@ -98,6 +98,8 @@ The adapter ties the base model (72.5% vs 75.0%, inside the ±10% interval) rath
 
 The conclusion named a larger base model as the way past ~75%, so it was measured: the 14B base reaches **88.9%** argument accuracy on the same 395 records (100% tool, 99.7% schema-valid), up from 81.5% at 3B — while the grammar still costs it (71.1%), so the grammar's harm is not a small-model artifact. `python main.py bfcl --preset 14b`; report at `docs/reference-run/bfcl_simple_14b.json`.
 
+Quantization is a second lever, and it matters most at small size: the **8-bit 3B** base reaches **86.8%** (vs 81.5% at 4-bit) — nearly the 4-bit 14B at about half the memory — while 8-bit leaves the grammar variant collapsed (33.9% vs 37.7%). So 4-bit costs the small model a real few points on structured output, but it is not what breaks grammar-constrained decoding. `python main.py bfcl --model mlx-community/Qwen2.5-3B-Instruct-8bit`; report at `docs/reference-run/bfcl_simple_3b_8bit.json`.
+
 ### Abstention (BFCL irrelevance, 237 records)
 
 The synthetic task's cleanest grammar win was abstention (0% → 100%), so it was re-run on real data. BFCL `irrelevance` ships no answer file — the one provided function is a deliberate mismatch, and the correct behaviour is to refuse — so the metric is the hallucinated-call rate (`python main.py bfcl --irrelevance`):
