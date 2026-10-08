@@ -94,6 +94,10 @@ The repo's core claim is that LoRA fine-tuning is what finally teaches the contr
 
 The adapter ties the base model (72.5% vs 75.0%, inside the ±10% interval) rather than beating it. That is the opposite of the synthetic task, where LoRA went 0% → 100%: there the base model could not follow the prompt, so training *was* supplying the format. On real schemas the prompt already supplies it, and in-distribution fine-tuning adds nothing. "Training buys the decisions" was really "training buys the *format* when the prompt does not deliver it" — a property of the weak base model, not of fine-tuning in general. (Training details: `config/bfcl.yaml`, 200 iters, val loss 1.22 → 0.067; the split and report are `scripts/split_bfcl.py` and `docs/reference-run/bfcl_split_test.json`.)
 
+### Scale is the one lever that moves the number
+
+The conclusion named a larger base model as the way past ~75%, so it was measured: the 14B base reaches **88.9%** argument accuracy on the same 395 records (100% tool, 99.7% schema-valid), up from 81.5% at 3B — while the grammar still costs it (71.1%), so the grammar's harm is not a small-model artifact. `python main.py bfcl --preset 14b`; report at `docs/reference-run/bfcl_simple_14b.json`.
+
 ### Abstention (BFCL irrelevance, 237 records)
 
 The synthetic task's cleanest grammar win was abstention (0% → 100%), so it was re-run on real data. BFCL `irrelevance` ships no answer file — the one provided function is a deliberate mismatch, and the correct behaviour is to refuse — so the metric is the hallucinated-call rate (`python main.py bfcl --irrelevance`):
@@ -120,8 +124,8 @@ Multi-tool requests, nested parameters, ambiguous instructions, contradictions �
 
 ## Recommendation
 
-**Option A is done, including the prompt ablation and an in-distribution training run** (see *Results*). The full picture on real schemas: the 3B base writes the contract *because the prompt supplies it* (82% args with the full prompt, 0% with names alone); grammar-constrained decoding is a weaker carrier of the same contract (22–37%); abstention gains nothing; and an in-distribution LoRA ties the base model (72.5% vs 75.0%) rather than beating it. The synthetic task stays intact as the controlled experiment it was designed to be.
+**Option A is done, including the prompt ablation, an in-distribution training run, and a scale check** (see *Results*). The full picture on real schemas: the 3B base writes the contract *because the prompt supplies it* (82% args with the full prompt, 0% with names alone); grammar-constrained decoding is a weaker carrier of the same contract (22–37%); abstention gains nothing; and an in-distribution LoRA ties the base model (72.5% vs 75.0%) rather than beating it. The synthetic task stays intact as the controlled experiment it was designed to be.
 
 The honest, useful conclusion is now threefold: **format is supplied by the prompt; grammar-constrained decoding is a weaker substitute for it, not an addition; and fine-tuning on real schemas buys nothing the prompt does not already deliver.** The synthetic task's "training buys the decisions" was really "training buys the format when a weak base model cannot follow a prompt" — a property of that base model, not of the methods.
 
-If the goal is to push real-schema argument accuracy above ~75%, none of the repo's three levers (prompting, grammar, LoRA) does it on this base model; that would mean a larger base model, a stronger instruction-tuned model, or a genuinely harder generalization target — all beyond this pilot's scope.
+The one lever that *does* move real-schema accuracy is scale: the 14B base reaches 88.9% (vs 81.5% at 3B), and the grammar still costs it there (71.1%). If the goal is to push argument accuracy further, a larger base model — not grammar and not in-distribution LoRA — is what has been shown to work; a stronger instruction-tuned model or a genuinely harder generalization target are the other, unmeasured options.

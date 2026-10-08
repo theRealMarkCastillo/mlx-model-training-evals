@@ -1,0 +1,87 @@
+{
+  "model": "mlx-community/Qwen2.5-14B-Instruct-4bit",
+  "preset": "14b",
+  "records_path": "/Users/markcastillo/git/mlx-model-training-evals/data/bfcl_simple.jsonl",
+  "variants": [
+    "base",
+    "grammar"
+  ],
+  "max_tokens": 200,
+  "prompt_style": "full",
+  "adapter_path": null,
+  "paired": {
+    "is_schema_valid": {
+      "both_correct": 383,
+      "only_a": 11,
+      "only_b": 1,
+      "neither": 0,
+      "p_value": 0.00634765625
+    },
+    "tool_correct": {
+      "both_correct": 384,
+      "only_a": 11,
+      "only_b": 0,
+      "neither": 0,
+      "p_value": 0.0009765625
+    },
+    "args_correct": {
+      "both_correct": 274,
+      "only_a": 77,
+      "only_b": 7,
+      "neither": 37,
+      "p_value": 5.137564699362503e-16
+    }
+  },
+  "datasets": {
+    "bfcl_simple": {
+      "base": {
+        "num_samples": 395,
+        "intervals": {
+          "schema_valid_rate": [
+            0.9858006099610122,
+            0.9995529740181917
+          ],
+          "tool_accuracy": [
+            0.9903681060350775,
+            1.0
+          ],
+          "arg_accuracy": [
+            0.8537612726968932,
+            0.9159678628797366
+          ]
+        },
+        "schema_valid_rate": 0.9974683544303797,
+        "tool_accuracy": 1.0,
+        "arg_accuracy": 0.8886075949367088,
+        "error_categories": {
+          "parameters": 43,
+          "schema": 1
+        }
+      },
+      "grammar": {
+        "num_samples": 395,
+        "intervals": {
+          "schema_valid_rate": [
+            0.9508279487123457,
+            0.9843804147081199
+          ],
+          "tool_accuracy": [
+            0.9508279487123457,
+            0.9843804147081199
+          ],
+          "arg_accuracy": [
+            0.664839993146976,
+            0.7538725985184873
+          ]
+        },
+        "schema_valid_rate": 0.9721518987341772,
+        "tool_accuracy": 0.9721518987341772,
+        "arg_accuracy": 0.7113924050632912,
+        "error_categories": {
+          "json": 11,
+          "parameters": 103
+        }
+      }
+    }
+  }
+}
