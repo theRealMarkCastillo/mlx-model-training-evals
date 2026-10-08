@@ -39,7 +39,7 @@ DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "bfcl_simple.jsonl
 IRRELEVANCE_PATH = Path(__file__).resolve().parent.parent / "data" / "bfcl_irrelevance.jsonl"
 RATE_FLAGS = (("schema_valid_rate", "is_schema_valid"), ("tool_accuracy", "tool_correct"),
               ("arg_accuracy", "args_correct"))
-LABELS = {"base": "Base (zero-shot)", "grammar": "Base + JSON grammar"}
+LABELS = {"base": "Base (zero-shot)", "grammar": "Base + JSON grammar", "lora": "LoRA (BFCL split)"}
 
 
 def load_bfcl_records(path=DATA_PATH, max_records=None):
@@ -65,18 +65,20 @@ def summarize_bfcl(results):
 
 
 def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=("base", "grammar"),
-                  max_tokens=200, max_records=None, output_dir=None, quiet=False, prompt_style="full"):
+                  max_tokens=200, max_records=None, output_dir=None, quiet=False, prompt_style="full",
+                  adapter_path=None):
     records = load_bfcl_records(records_path or DATA_PATH, max_records)
     preset = preset or "3b"
     model_name = model_name or PRESETS[preset].model
     console.print(f"[bold]BFCL simple: {len(records)} records, model {model_name}, prompt={prompt_style}[/bold]")
-    model, tokenizer = mlx_lm.load(model_name)
-    vocab_size = getattr(getattr(model, "args", None), "vocab_size", None) or tokenizer_vocab_size(tokenizer)
     datasets = {"bfcl_simple": {}}
-    try:
-        for variant in variants:
-            console.print(f"[bold]Evaluating {LABELS.get(variant, variant)}[/bold]")
-            results = []
+    for variant in variants:
+        console.print(f"[bold]Evaluating {LABELS.get(variant, variant)}[/bold]")
+        adapter = adapter_path if variant == "lora" else None
+        model, tokenizer = mlx_lm.load(model_name, **({"adapter_path": adapter} if adapter else {}))
+        vocab_size = getattr(getattr(model, "args", None), "vocab_size", None) or tokenizer_vocab_size(tokenizer)
+        results = []
+        try:
             for record in tqdm(records, desc=variant, leave=False):
                 messages = [dict(message) for message in record["messages"][:-1]]   # system + user
                 if prompt_style == "minimal" and messages and messages[0]["role"] == "system":
@@ -95,15 +97,15 @@ def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=(
                     **score_bfcl_call(parsed, record["meta"]),
                     "grammar_complete": generated.get("grammar_complete"),
                 })
-            datasets["bfcl_simple"][variant] = summarize_bfcl(results)
-    finally:
-        del model
-        import mlx.core as mx
-        mx.clear_cache()
+        finally:
+            del model
+            import mlx.core as mx
+            mx.clear_cache()
+        datasets["bfcl_simple"][variant] = summarize_bfcl(results)
 
     report = {"model": model_name, "preset": preset, "records_path": str(records_path or DATA_PATH),
               "variants": list(variants), "max_tokens": max_tokens, "prompt_style": prompt_style,
-              "datasets": datasets}
+              "adapter_path": adapter_path, "datasets": datasets}
     if len(variants) >= 2:
         report["paired"] = {flag: paired_comparison(datasets["bfcl_simple"][variants[0]]["sample_results"],
                                                     datasets["bfcl_simple"][variants[1]]["sample_results"], flag)
