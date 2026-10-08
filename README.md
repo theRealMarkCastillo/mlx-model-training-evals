@@ -448,8 +448,8 @@ uv run ruff check .                         # lint config lives in pyproject.tom
 
 ## Limitations
 
-* The task is synthetic and narrow. Wording, entities, and request types are drawn from small templates, which is useful for controlled experiments but is not real traffic.
+* The task is synthetic and narrow. Wording, entities, and request types are drawn from small templates, which is useful for controlled experiments but is not real traffic. The BFCL pilot (see "Real data: the BFCL pilot") re-runs the headline comparison on real function schemas and finds the synthetic grammar/training wins do not transfer.
 * Test sets are small (40–75 records). Read the intervals; differences of a few points are usually noise.
 * Greedy decoding is the default and what the reference numbers use. `--temperature` samples and `--repeats k` reports pass@k, so the stochastic cost of structured output and the value of retrying are both measurable; what is still missing is a study of *which* records retrying fixes (the per-record data is in `eval_results.json`, the analysis is not written).
-* The grammar variant is specialized to this envelope, not a general JSON-Schema compiler: whitespace outside strings, escapes inside them, and strings/arrays longer than the caps are excluded by construction. It answers "would valid JSON have been enough?" for this task, which is the question the repo is about.
+* The grammar variant of the synthetic eval is specialized to this envelope, not a general JSON-Schema compiler: whitespace outside strings, escapes inside them, and strings/arrays longer than the caps are excluded by construction. It answers "would valid JSON have been enough?" for this task, which is the question the repo is about. (`src/schema_grammar.py`, used by the BFCL pilot, generalizes this — whitespace, nested objects, typed arrays — but is not wired into the synthetic eval.)
 * The constrained-decoding numbers come from one seed on the full evaluation sets. The mechanism (format failures vanish, task errors remain) is robust; the exact percentages in that table are point estimates with the intervals shown.

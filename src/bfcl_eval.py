@@ -115,6 +115,8 @@ def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=(
         stem = Path(records_path or DATA_PATH).stem
         if stem in ("train", "valid", "test"):
             stem = f"{Path(records_path).parent.name}_{stem}"   # avoid a bare 'test.json'
+        if preset != "3b":
+            stem = f"{stem}_{preset}"
         path = Path(output_dir) / f"{stem}{suffix}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         compact = {key: value for key, value in report.items() if key != "datasets"}
@@ -194,7 +196,10 @@ def run_bfcl_irrelevance(model_name=None, *, preset="3b", records_path=None, max
     report = {"model": model_name, "preset": preset, "records_path": str(records_path or IRRELEVANCE_PATH),
               "variants": ["base", "grammar"], "max_tokens": max_tokens, "datasets": datasets}
     if output_dir:
-        path = Path(output_dir) / f"{Path(records_path or IRRELEVANCE_PATH).stem}.json"
+        stem = Path(records_path or IRRELEVANCE_PATH).stem
+        if preset != "3b":
+            stem = f"{stem}_{preset}"
+        path = Path(output_dir) / f"{stem}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         compact = {key: value for key, value in report.items() if key != "datasets"}
         compact["datasets"] = {name: {v: {k: x for k, x in s.items() if k != "sample_results"}
