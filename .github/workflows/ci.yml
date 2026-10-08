@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  core:
+    # Pure-Python tests: schema parsing, scoring, statistics, dataset design and
+    # the offline data summary. No MLX, no model downloads, so this runs anywhere
+    # in seconds and stays green on Linux runners.
+    name: Core tests + lint (no MLX)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install core test dependencies
+        run: python -m pip install --upgrade pip pydantic rich ruff
+      - name: Lint
+        run: ruff check .
+      - name: Core test suite
+        run: python -m unittest discover -s tests -p "test_core.py" -v
+
+  mlx:
+    # The full suite, including real (tiny) LoRA training and an offline
+    # end-to-end train -> fuse -> benchmark -> evaluate run. Apple Silicon only.
+    name: Full suite (MLX, Apple Silicon)
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Sync locked environment
+        run: uv sync --locked
+      - name: Full test suite
+        run: uv run python -m unittest discover -s tests -v

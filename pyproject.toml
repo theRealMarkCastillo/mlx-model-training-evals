@@ -3,21 +3,36 @@ name = "mlx-model-training-evals"
 version = "0.1.0"
 description = "Reproducible MLX LoRA training and strict tool-call evaluation on Apple Silicon"
 readme = "README.md"
+license = "MIT"
+authors = [{ name = "Mark Castillo" }]
 requires-python = ">=3.12"
+# Only what this repo imports directly. `datasets` is deliberately absent: it is
+# an MLX-LM optional extra, needed only when training data comes from the Hugging
+# Face Hub, which this workflow never does (data is local JSONL in data/).
 dependencies = [
-    "datasets>=5.1.0",
     "huggingface-hub>=1.0",
     "numpy>=2.0",
     "pyyaml>=6.0",
     "nbformat>=5.10",
     "ipykernel>=7.4.0",
-    "jsonschema>=4.26.0",
     "jupyterlab>=4.6.4",
     "matplotlib>=3.11.2",
     "mlx>=0.32.3",
     "mlx-lm>=0.32.0",
     "pydantic>=2.13.5",
     "rich>=15.0.0",
-    "tabulate>=0.10.0",
     "tqdm>=4.70.1",
 ]
+
+[project.urls]
+Repository = "https://github.com/theRealMarkCastillo/mlx-model-training-evals"
+
+[dependency-groups]
+dev = ["ruff>=0.9"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
