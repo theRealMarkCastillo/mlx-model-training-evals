@@ -27,7 +27,7 @@ from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
-from src.bfcl import parse_bfcl_call, score_bfcl_call
+from src.bfcl import build_minimal_system_prompt, parse_bfcl_call, score_bfcl_call
 from src.constrained import constrained_generate, tokenizer_vocab_size
 from src.inference import generate_response
 from src.metrics import format_rate, paired_comparison, wilson_interval
@@ -65,11 +65,11 @@ def summarize_bfcl(results):
 
 
 def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=("base", "grammar"),
-                  max_tokens=200, max_records=None, output_dir=None, quiet=False):
+                  max_tokens=200, max_records=None, output_dir=None, quiet=False, prompt_style="full"):
     records = load_bfcl_records(records_path or DATA_PATH, max_records)
     preset = preset or "3b"
     model_name = model_name or PRESETS[preset].model
-    console.print(f"[bold]BFCL simple: {len(records)} records, model {model_name}[/bold]")
+    console.print(f"[bold]BFCL simple: {len(records)} records, model {model_name}, prompt={prompt_style}[/bold]")
     model, tokenizer = mlx_lm.load(model_name)
     vocab_size = getattr(getattr(model, "args", None), "vocab_size", None) or tokenizer_vocab_size(tokenizer)
     datasets = {"bfcl_simple": {}}
@@ -78,7 +78,10 @@ def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=(
             console.print(f"[bold]Evaluating {LABELS.get(variant, variant)}[/bold]")
             results = []
             for record in tqdm(records, desc=variant, leave=False):
-                messages = record["messages"][:-1]   # system + user
+                messages = [dict(message) for message in record["messages"][:-1]]   # system + user
+                if prompt_style == "minimal" and messages and messages[0]["role"] == "system":
+                    messages[0]["content"] = build_minimal_system_prompt(
+                        record["meta"].get("functions") or [record["meta"]["function"]])
                 if variant == "grammar":
                     grammar = JsonSchemaGrammar(bfcl_envelope(record["meta"].get("functions") or [record["meta"]["function"]]))
                     processor = SchemaGrammarProcessor(tokenizer, vocab_size, grammar)
@@ -99,13 +102,15 @@ def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=(
         mx.clear_cache()
 
     report = {"model": model_name, "preset": preset, "records_path": str(records_path or DATA_PATH),
-              "variants": list(variants), "max_tokens": max_tokens, "datasets": datasets}
+              "variants": list(variants), "max_tokens": max_tokens, "prompt_style": prompt_style,
+              "datasets": datasets}
     if len(variants) >= 2:
         report["paired"] = {flag: paired_comparison(datasets["bfcl_simple"][variants[0]]["sample_results"],
                                                     datasets["bfcl_simple"][variants[1]]["sample_results"], flag)
                             for _, flag in RATE_FLAGS}
     if output_dir:
-        path = Path(output_dir) / f"{Path(records_path or DATA_PATH).stem}.json"
+        suffix = "" if prompt_style == "full" else f"_{prompt_style}"
+        path = Path(output_dir) / f"{Path(records_path or DATA_PATH).stem}{suffix}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         compact = {key: value for key, value in report.items() if key != "datasets"}
         compact["datasets"] = {

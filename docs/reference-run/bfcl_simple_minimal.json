@@ -1,0 +1,86 @@
+{
+  "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+  "preset": "3b",
+  "records_path": "/Users/markcastillo/git/mlx-model-training-evals/data/bfcl_simple.jsonl",
+  "variants": [
+    "base",
+    "grammar"
+  ],
+  "max_tokens": 200,
+  "prompt_style": "minimal",
+  "paired": {
+    "is_schema_valid": {
+      "both_correct": 0,
+      "only_a": 0,
+      "only_b": 334,
+      "neither": 61,
+      "p_value": 5.714936956411375e-101
+    },
+    "tool_correct": {
+      "both_correct": 0,
+      "only_a": 0,
+      "only_b": 344,
+      "neither": 51,
+      "p_value": 5.5809931214954833e-104
+    },
+    "args_correct": {
+      "both_correct": 0,
+      "only_a": 0,
+      "only_b": 87,
+      "neither": 308,
+      "p_value": 1.2924697071141057e-26
+    }
+  },
+  "datasets": {
+    "bfcl_simple": {
+      "base": {
+        "num_samples": 395,
+        "intervals": {
+          "schema_valid_rate": [
+            0.0,
+            0.009631893964922415
+          ],
+          "tool_accuracy": [
+            0.0,
+            0.009631893964922415
+          ],
+          "arg_accuracy": [
+            0.0,
+            0.009631893964922415
+          ]
+        },
+        "schema_valid_rate": 0.0,
+        "tool_accuracy": 0.0,
+        "arg_accuracy": 0.0,
+        "error_categories": {
+          "json": 395
+        }
+      },
+      "grammar": {
+        "num_samples": 395,
+        "intervals": {
+          "schema_valid_rate": [
+            0.806620527679454,
+            0.8778617329473211
+          ],
+          "tool_accuracy": [
+            0.8342107856077065,
+            0.9004166955778067
+          ],
+          "arg_accuracy": [
+            0.18218666761550917,
+            0.2637086452104348
+          ]
+        },
+        "schema_valid_rate": 0.8455696202531645,
+        "tool_accuracy": 0.8708860759493671,
+        "arg_accuracy": 0.22025316455696203,
+        "error_categories": {
+          "parameters": 247,
+          "json": 51,
+          "schema": 10
+        }
+      }
+    }
+  }
+}

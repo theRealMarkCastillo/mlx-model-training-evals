@@ -62,11 +62,17 @@ def cmd_eval(args):
 
 def cmd_bfcl(args):
     from src.bfcl_eval import run_bfcl_eval, run_bfcl_irrelevance
-    runner = run_bfcl_irrelevance if args.irrelevance else run_bfcl_eval
-    runner(
-        model_name=args.model, preset=args.preset, records_path=args.records,
-        max_tokens=args.max_tokens, max_records=args.samples, output_dir=args.output_dir,
-    )
+    if args.irrelevance:
+        run_bfcl_irrelevance(
+            model_name=args.model, preset=args.preset, records_path=args.records,
+            max_tokens=args.max_tokens, max_records=args.samples, output_dir=args.output_dir,
+        )
+    else:
+        run_bfcl_eval(
+            model_name=args.model, preset=args.preset, records_path=args.records,
+            variants=args.variants, max_tokens=args.max_tokens, max_records=args.samples,
+            output_dir=args.output_dir, prompt_style=args.prompt,
+        )
 
 
 def cmd_forgetting(args):
@@ -215,6 +221,9 @@ def build_parser():
     p.add_argument("--max-tokens", type=positive_int, default=200)
     p.add_argument("--irrelevance", action="store_true",
                    help="Measure hallucinated-call rate on the irrelevance category (no ground truth)")
+    p.add_argument("--variants", nargs="+", default=["base", "grammar"], choices=["base", "grammar"])
+    p.add_argument("--prompt", choices=["full", "minimal"], default="full",
+                   help="System prompt style: full (types + envelope example) or minimal (names only)")
     p.add_argument("--output-dir", help="Directory for the JSON report (default: no file)")
     p.set_defaults(func=cmd_bfcl)
 

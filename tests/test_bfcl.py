@@ -9,6 +9,7 @@ import unittest
 from pathlib import Path
 
 from src.bfcl import (
+    build_minimal_system_prompt,
     build_system_prompt,
     canonical_arguments,
     canonical_completion,
@@ -131,6 +132,12 @@ META = {"tool": "calculate_triangle_area",
 
 
 class BfclScoringTests(unittest.TestCase):
+    def test_minimal_prompt_has_names_but_no_envelope_or_types(self):
+        prompt = build_minimal_system_prompt(QUESTION["function"])
+        self.assertIn("calculate_triangle_area", prompt)
+        self.assertNotIn('"tool"', prompt)          # no envelope example
+        self.assertNotIn("integer", prompt)          # no type hints
+        self.assertNotIn("JSON", prompt)             # no format instruction
     def test_parse_recovers_embedded_json_and_rejects_garbage(self):
         self.assertEqual(parse_bfcl_call('{"tool":"f","parameters":{"x":1}}'),
                          {"tool": "f", "parameters": {"x": 1}})

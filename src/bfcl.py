@@ -89,6 +89,17 @@ def build_system_prompt(functions):
     return "\n".join(lines)
 
 
+def build_minimal_system_prompt(functions):
+    """The ablation prompt: function names only, no envelope example, no types, no JSON instruction.
+
+    Isolates how much of the base model's accuracy is carried by the detailed prompt: if the
+    names alone get most of the way there, the prompt's envelope example and type hints are
+    doing little work.
+    """
+    names = ", ".join(function["name"] for function in functions)
+    return f"You are an automated assistant. Available functions: {names}. Call the one that answers the request."
+
+
 def canonical_arguments(acceptable_args):
     """Pick one value per argument from its acceptable set; `""` means the argument is absent.
 

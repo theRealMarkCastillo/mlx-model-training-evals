@@ -71,6 +71,17 @@ The natural suspicion was that the grammar's whitespace-free, compact path cause
 * **Whitespace does not help.** Allowing structural whitespace (and capping a whitespace run, like strings and arrays are already capped) leaves argument accuracy at 37.7% and schema validity at 94%. The degradation is not a tokenization artifact — it is the model fighting an envelope its native format does not produce, which a structural constraint cannot fix. (Along the way this surfaced and fixed two real bugs: the whitespace mask matched Unicode spaces via `str.strip()` and desynchronized from the grammar, and an uncapped whitespace run let a model that had leaked prose loop to the token budget.)
 * **Tool choice survives the grammar, argument filling does not.** On `multiple` (195 records, 2–4 candidate functions, exercising the dependent-`parameters` node): tool accuracy 94.9% → 90.8% (p = 0.10), argument accuracy **75.4% → 35.9%** (p ≈ 0). The grammar preserves *which* function to call and still destroys *what* to pass it.
 
+### The prompt is doing the format work
+
+Where does the base model's 82% come from? Ablating the prompt — replacing the envelope example, type hints and "respond with only JSON" with just the function *names* — answers it:
+
+| Argument accuracy | Full prompt | Minimal prompt (names only) |
+|---|---:|---:|
+| base (no grammar) | 81.5% | **0.0%** |
+| base + grammar | 37.7% | **22.0%** |
+
+Without the prompt's format guidance the base model emits **zero** structured calls — it explains the answer in prose, names the function in backticks, but never produces the envelope. The prompt and the grammar are two ways to supply the same *format contract*, and the prompt is by far the better carrier of it: it shapes the model's *intent* (what to output), so it gets the structure *and* the values right (82%); the grammar only constrains *structure* (what is allowed), so it forces the envelope while the model fills it with whatever its unshaped intent produces (22–37%). Grammar-constrained decoding is a weaker, narrower version of the prompt, not a substitute for it.
+
 ### Abstention (BFCL irrelevance, 237 records)
 
 The synthetic task's cleanest grammar win was abstention (0% → 100%), so it was re-run on real data. BFCL `irrelevance` ships no answer file — the one provided function is a deliberate mismatch, and the correct behaviour is to refuse — so the metric is the hallucinated-call rate (`python main.py bfcl --irrelevance`):
@@ -97,6 +108,8 @@ Multi-tool requests, nested parameters, ambiguous instructions, contradictions �
 
 ## Recommendation
 
-**Option A is done, including both follow-ups** (see *Results*). On real schemas the 3B base already writes the contract and refuses when it should; grammar-constrained decoding adds nothing and its constraints cost — on arguments (82% → 37%, and 75% → 36% on tool choice), on abstention (no gain), and none of it is a whitespace artifact. The synthetic task stays intact as the controlled experiment it was designed to be.
+**Option A is done, including the prompt ablation** (see *Results*). The full picture: on real schemas the 3B base writes the contract *because the prompt supplies it* (82% args with the full prompt, 0% with names alone); grammar-constrained decoding is a weaker carrier of the same contract (22–37%) and adds nothing on top of a good prompt; abstention gains nothing either. The synthetic task stays intact as the controlled experiment it was designed to be.
 
-Where this leaves the project: the grammar's synthetic wins were a property of a weak base model, not of constrained decoding in general. The honest, useful conclusion is **"grammar-constrained decoding is a fix for missing format — and format is only missing when the prompt or the base model is weak."** The natural next question, if the pilot is extended, is no longer about the grammar but about the prompt: how much of the 3B base model's 82% is carried by the per-record system prompt, and whether a *trained* adapter on real schemas buys back the decisions the grammar cannot.
+Where this leaves the project: the grammar's synthetic wins were a property of a weak base model, and the prompt is what actually supplies format on real data. The honest, useful conclusion is **"format is supplied by the prompt, and grammar-constrained decoding is a weaker substitute for it, not an addition to it."**
+
+The one question the pilot does not answer is whether *training* on real schemas buys back the decisions — the 18% of arguments the best prompting-only setting still gets wrong. That is Option B, and it is a real commitment: BFCL is eval-only, so a training run needs a second data source (Gorilla's APIBench/OpenFunctions or ToolBench) with its own license and preprocessing. It is worth doing only if the goal is to *maximize* real-schema accuracy, not to demonstrate the pipeline — which the synthetic task already does.

@@ -286,13 +286,22 @@ The natural suspicion is that the grammar's whitespace-free, compact path causes
 
 Tool choice survives the grammar (90.8%, p = 0.10), and argument accuracy collapses exactly as it did on `simple`.
 
+The decisive question is then: where does the base model's 82% come from? Ablating the prompt — replacing the envelope example, type hints and "respond with only JSON" with just the function *names* — answers it:
+
+| Argument accuracy | Full prompt | Minimal prompt (names only) |
+|---|---:|---:|
+| base (no grammar) | 81.5% | **0.0%** |
+| base + grammar | 37.7% | **22.0%** |
+
+Without the prompt's format guidance the base model emits **zero** structured calls — it explains the answer in prose, names the function in backticks, but never produces the envelope. The prompt and the grammar are two ways to supply the same *format contract*, and the prompt is by far the better carrier of it: it shapes the model's *intent* (what to output), so it gets the structure *and* the values right (82%); the grammar only constrains *structure* (what is allowed), so it forces the envelope while the model fills it with whatever its unshaped intent produces (22–37%). Grammar-constrained decoding is not a substitute for the prompt — it is a weaker, narrower version of it.
+
 The abstention axis is where the synthetic task's grammar win was cleanest (0% → 100%), so it was re-run too. On BFCL `irrelevance` (237 records where the one provided function is a deliberate mismatch), the metric is the hallucinated-call rate — and the grammar does **not** help:
 
 | Metric | Base (zero-shot) | Base + JSON grammar |
 |---|---:|---:|
 | hallucinated-call rate | 37.6% [32–44] | 45.1% [39–52] |
 
-The base model already refuses 62% of the time (the synthetic base refused ~0% because it could not format at all), and forcing a valid envelope — with `no_action` offered as an alternative — leaves the model calling the irrelevant function slightly *more* often. Both of the synthetic grammar's wins, format and abstention, were the same artifact: they fixed a base model that could not follow a prompt. On real schemas the prompt already does the job, and the grammar adds nothing. Grammar-constrained decoding is a fix for *missing* format — and on real data the format was never missing.
+The base model already refuses 62% of the time (the synthetic base refused ~0% because it could not format at all), and forcing a valid envelope — with `no_action` offered as an alternative — leaves the model calling the irrelevant function slightly *more* often. Both of the synthetic grammar's wins, format and abstention, were the same artifact: they fixed a base model that could not follow a prompt. On real schemas the prompt already does the job, and the grammar adds nothing. Grammar-constrained decoding is a fix for *missing* format — and format is only missing when the prompt does not supply it.
 
 ## Teaching tools
 
