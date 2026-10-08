@@ -9,7 +9,7 @@ from rich.console import Console
 from rich.table import Table
 
 from src.dataset import positive_int
-from src.models import PRESETS, DEFAULT_PRESET, add_preset_argument
+from src.models import DEFAULT_PRESET, PRESETS, add_preset_argument
 from src.runs import REPO_ROOT, latest_path
 
 console = Console()
@@ -35,8 +35,8 @@ def cmd_models(args):
 
 
 def cmd_prepare(args):
-    from src.generate_data import main
     from src.dataset import validate_splits
+    from src.generate_data import main
     main()
     validate_splits()
 
@@ -44,7 +44,7 @@ def cmd_prepare(args):
 def cmd_train(args):
     from src.train import run_training
     overrides = {k: v for k, v in (("rank", args.rank), ("learning_rate", args.learning_rate),
-                                   ("num_layers", args.num_layers)) if v is not None}
+                                   ("num_layers", args.num_layers), ("seed", args.seed)) if v is not None}
     run_training(config_path=args.config, iters_override=args.iters, preset=args.preset,
                  output_dir=args.output_dir, overrides=overrides)
 
@@ -55,7 +55,16 @@ def cmd_eval(args):
         model_name=args.model, adapter_path=args.adapter, test_jsonl=args.test_file,
         num_eval_samples=args.samples, preset=args.preset, output_dir=args.output_dir,
         fused_path=args.fused, max_tokens=args.max_tokens, variants=args.variants,
-        shots=args.shots, challenge=args.challenge,
+        shots=args.shots, challenge=args.challenge, constrained=args.constrained,
+        temperature=args.temperature, seed=args.seed,
+    )
+
+
+def cmd_forgetting(args):
+    from src.forgetting import run_forgetting_check
+    run_forgetting_check(
+        preset=args.preset, model_name=args.model, adapter_path=args.adapter,
+        output_dir=args.output_dir, general_jsonl=args.general_file, max_samples=args.samples,
     )
 
 
@@ -82,12 +91,16 @@ def cmd_ablate(args):
 
 
 def cmd_show_mask(args):
+    from src.dataset import DATA_DIR, load_samples
+    records = load_samples(DATA_DIR / f"{args.split}.jsonl")
+    if not 0 <= args.index < len(records):
+        raise ValueError(f"--index {args.index} is out of range for '{args.split}' ({len(records)} records)")
     from transformers import AutoTokenizer
-    from src.dataset import load_samples, DATA_DIR
+
     from src.explain import loss_mask_tokens, mask_counts, render_mask_rich
     profile = PRESETS[args.preset or DEFAULT_PRESET]
     tokenizer = AutoTokenizer.from_pretrained(profile.model)
-    record = load_samples(DATA_DIR / f"{args.split}.jsonl")[args.index]
+    record = records[args.index]
     pairs = loss_mask_tokens(tokenizer, record)
     console.print(render_mask_rich(pairs))
     counts = mask_counts(pairs)
@@ -97,6 +110,7 @@ def cmd_show_mask(args):
 
 def cmd_show_params(args):
     import mlx_lm
+
     from src.explain import parameter_summary
     from src.models import resolve_model_paths
     from src.runs import resolve_adapter_source
@@ -112,6 +126,27 @@ def cmd_show_params(args):
     console.print(table)
     console.print(f"Adapter: {s['adapter_parameters']:,} parameters ({s['adapter_megabytes_fp16']:.1f} MB in fp16) = "
                   f"{s['adapter_percent']:.3f}% of {s['base_parameters']:,} base parameters.")
+
+
+def cmd_inspect(args):
+    from src.inspect import run_inspection
+    run_inspection(
+        args.split, args.index, preset=args.preset, model_name=args.model, adapter_path=args.adapter,
+        output_dir=args.output_dir, variant=args.variant, max_tokens=args.max_tokens,
+        top_k=args.top_k, shots=args.shots,
+    )
+
+
+def cmd_show_data(args):
+    from src.show_data import print_dataset_summary
+    print_dataset_summary(with_token_stats=args.tokens, examples=args.examples, preset=args.preset)
+
+
+def cmd_toy_train(args):
+    from src.mini_train import run_toy_training
+    overrides = {k: v for k, v in (("iters", args.iters), ("seed", args.seed),
+                                   ("rank", args.rank), ("lr", args.lr)) if v is not None}
+    run_toy_training(mode="full" if args.full else "lora", output_root=args.output_root, **overrides)
 
 
 def cmd_serve(args):
@@ -142,9 +177,10 @@ def build_parser():
     p.add_argument("--rank", type=positive_int, help="Override LoRA rank")
     p.add_argument("--learning-rate", type=float)
     p.add_argument("--num-layers", type=int)
+    p.add_argument("--seed", type=int, help="Random seed for batch order and LoRA init (default: base config)")
     p.set_defaults(func=cmd_train)
 
-    p = sub.add_parser("eval", help="Compare base, few-shot, and LoRA (and fused) models")
+    p = sub.add_parser("eval", help="Compare base, few-shot, LoRA (and grammar-constrained or fused) models")
     _model_selection(p)
     p.add_argument("--test-file", help="Chat JSONL holdout (default: data/test.jsonl)")
     p.add_argument("--fused", help="Also evaluate this fused model directory")
@@ -153,7 +189,18 @@ def build_parser():
     p.add_argument("--variants", nargs="+", default=["base", "fewshot", "lora"], choices=["base", "fewshot", "lora"])
     p.add_argument("--shots", type=positive_int, default=5, help="Few-shot demonstrations (one per tool at 5)")
     p.add_argument("--challenge", action="store_true", help="Also evaluate data/challenge_*.jsonl")
+    p.add_argument("--constrained", action="store_true",
+                   help="Also evaluate the base model with grammar-constrained decoding (valid JSON by construction)")
+    p.add_argument("--temperature", type=float, default=0.0,
+                   help="0.0 = greedy (default). >0 samples: one stochastic draw per record, seeded")
+    p.add_argument("--seed", type=int, default=42, help="Sampling seed when --temperature > 0")
     p.set_defaults(func=cmd_eval)
+
+    p = sub.add_parser("forgetting", help="Compare base vs LoRA on general requests (catastrophic forgetting)")
+    _model_selection(p)
+    p.add_argument("--general-file", help="Chat JSONL with free-form answers (default: data/general.jsonl)")
+    p.add_argument("--samples", type=positive_int, help="Subset of the general set (default: all)")
+    p.set_defaults(func=cmd_forgetting)
 
     p = sub.add_parser("benchmark", help="Measure latency, throughput, and memory")
     _model_selection(p)
@@ -173,7 +220,8 @@ def build_parser():
 
     p = sub.add_parser("ablate", help="Sweep one hyperparameter: train + evaluate per value")
     add_preset_argument(p)
-    p.add_argument("param", choices=["rank", "scale", "dropout", "learning_rate", "iters", "num_layers", "batch_size"])
+    from src.ablation import ABLATABLE
+    p.add_argument("param", choices=sorted(ABLATABLE))
     p.add_argument("values", nargs="+")
     p.add_argument("--iters", type=positive_int, help="Training iterations per point (default: base config)")
     p.add_argument("--samples", type=positive_int)
@@ -189,6 +237,31 @@ def build_parser():
     p = sub.add_parser("show-params", help="Count trainable LoRA parameters in the latest adapter")
     _model_selection(p)
     p.set_defaults(func=cmd_show_params)
+
+    p = sub.add_parser("inspect", help="Trace one greedy decode: per-token probabilities and where it diverged")
+    _model_selection(p)
+    p.add_argument("--split", default="test", choices=["train", "valid", "test"])
+    p.add_argument("--index", type=int, default=0)
+    p.add_argument("--variant", choices=["base", "fewshot", "lora"], default="lora")
+    p.add_argument("--max-tokens", type=positive_int, default=150)
+    p.add_argument("--top-k", type=positive_int, default=5, help="Alternatives listed per step")
+    p.add_argument("--shots", type=positive_int, default=5, help="Few-shot demonstrations when --variant fewshot")
+    p.set_defaults(func=cmd_inspect)
+
+    p = sub.add_parser("show-data", help="Offline summary of every dataset split (counts, balance, examples)")
+    add_preset_argument(p)
+    p.add_argument("--tokens", action="store_true", help="Also count tokens per split (downloads the tokenizer)")
+    p.add_argument("--examples", type=int, default=1, help="Example records printed per tool (default: 1)")
+    p.set_defaults(func=cmd_show_data)
+
+    p = sub.add_parser("toy-train", help="From-scratch LoRA loop on a toy model (seconds, no downloads)")
+    p.add_argument("--iters", type=positive_int, help="Training steps (default: 300)")
+    p.add_argument("--seed", type=int, help="Random seed (default: 7)")
+    p.add_argument("--rank", type=positive_int, help="LoRA rank (default: 4)")
+    p.add_argument("--lr", type=float, help="Learning rate (default: 0.1)")
+    p.add_argument("--full", action="store_true", help="Full fine-tuning instead of LoRA")
+    p.add_argument("--output-root", help="Artifact root (default: artifacts/toy)")
+    p.set_defaults(func=cmd_toy_train)
 
     p = sub.add_parser("serve", help="OpenAI-compatible server via mlx_lm.server")
     add_preset_argument(p)
@@ -210,6 +283,14 @@ def main(argv=None):
         return 0
     try:
         result = args.func(args)
+    except MemoryError as exc:
+        if os.environ.get("MLX_EVALS_DEBUG"):
+            raise
+        console.print(f"[red]Out of memory:[/red] {exc}")
+        console.print("Try a smaller preset, fewer iterations (`--iters 10`), or closing other GPU-heavy apps.")
+        console.print("The failed run was recorded under artifacts/ (see its manifest.json for the full traceback).")
+        console.print("[dim]Set MLX_EVALS_DEBUG=1 for the full traceback.[/dim]")
+        return 1
     except (FileNotFoundError, ValueError) as exc:
         if os.environ.get("MLX_EVALS_DEBUG"):
             raise
