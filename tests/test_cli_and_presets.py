@@ -100,7 +100,7 @@ class CliTests(unittest.TestCase):
         with patch('src.train.run_training') as train:
             self.assertEqual(cli.main(['train', '--preset', '14b', '--iters', '5', '--rank', '4']), 0)
         self.assertEqual(train.call_args.kwargs, {'config_path': None, 'iters_override': 5, 'preset': '14b',
-                                                  'output_dir': None, 'overrides': {'rank': 4}})
+                                                  'output_dir': None, 'overrides': {'rank': 4}, 'validate': True})
         with patch('src.evaluate.run_comprehensive_evaluation') as evaluate:
             cli.main(['eval', '--variants', 'base', 'fewshot', '--challenge'])
         self.assertEqual(evaluate.call_args.kwargs['variants'], ['base', 'fewshot'])

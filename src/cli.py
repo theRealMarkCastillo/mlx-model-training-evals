@@ -46,7 +46,7 @@ def cmd_train(args):
     overrides = {k: v for k, v in (("rank", args.rank), ("learning_rate", args.learning_rate),
                                    ("num_layers", args.num_layers), ("seed", args.seed)) if v is not None}
     run_training(config_path=args.config, iters_override=args.iters, preset=args.preset,
-                 output_dir=args.output_dir, overrides=overrides)
+                 output_dir=args.output_dir, overrides=overrides, validate=not args.no_validate)
 
 
 def cmd_eval(args):
@@ -193,6 +193,8 @@ def build_parser():
     p.add_argument("--learning-rate", type=float)
     p.add_argument("--num-layers", type=int)
     p.add_argument("--seed", type=int, help="Random seed for batch order and LoRA init (default: base config)")
+    p.add_argument("--no-validate", action="store_true",
+                   help="Skip the 5-tool schema pre-flight (for non-synthetic data, e.g. the BFCL split)")
     p.set_defaults(func=cmd_train)
 
     p = sub.add_parser("eval", help="Compare base, few-shot, LoRA (and grammar-constrained or fused) models")

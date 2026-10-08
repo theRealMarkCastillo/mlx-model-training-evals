@@ -107,8 +107,13 @@ def _check_sequences(args, splits):
                 raise ValueError("max_seq_length must preserve every training/validation response")
 
 
-def run_training(config_path=None, iters_override=None, *, preset=None, output_dir=None, overrides=None):
-    """Train one adapter into a new run directory and point adapter_path/latest.json at it."""
+def run_training(config_path=None, iters_override=None, *, preset=None, output_dir=None, overrides=None,
+                 validate=True):
+    """Train one adapter into a new run directory and point adapter_path/latest.json at it.
+
+    `validate=False` skips the 5-tool schema pre-flight in `validate_splits`, for data with a
+    different envelope (e.g. the BFCL split): those records are already validated by the loader.
+    """
     overrides = dict(overrides or {})
     if iters_override is not None:
         overrides["iters"] = iters_override
@@ -121,7 +126,8 @@ def run_training(config_path=None, iters_override=None, *, preset=None, output_d
         artifacts_dir = configured_adapter.parent
     else:
         artifacts_dir = PRESETS[preset or DEFAULT_PRESET].output_dir
-    validate_splits(config["data"])
+    if validate:
+        validate_splits(config["data"])
 
     console.print(Panel.fit(
         f"[bold cyan]MLX LoRA training[/bold cyan]  {config['model']}\n"
