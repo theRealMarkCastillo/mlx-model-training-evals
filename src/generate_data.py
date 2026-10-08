@@ -18,13 +18,13 @@ Challenge sets isolate one difficulty each:
 - challenge_abstain:  kinds of unsupported requests never seen in training.
 """
 
-from dataclasses import dataclass
 import json
 import random
+from dataclasses import dataclass
 from pathlib import Path
 
 from src.runs import REPO_ROOT
-from src.schema import SYSTEM_PROMPT, ToolCall, PARAM_MODEL_MAP
+from src.schema import PARAM_MODEL_MAP, SYSTEM_PROMPT, ToolCall
 
 DATA_DIR = REPO_ROOT / "data"
 SEED = 42
@@ -292,12 +292,67 @@ def save_jsonl(records, path):
             f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
+# --------------------------------------------------------------------------------------
+# General-capability set: the forgetting check's yardstick.
+#
+# These records are deliberately NOT tool calls and use a plain assistant system prompt,
+# because the question is whether the adapter that learned the ops contract still handles
+# ordinary requests. They are scored by assistant loss only (there is no single correct
+# string to match), so short, unambiguous reference answers are enough.
+# --------------------------------------------------------------------------------------
+
+GENERAL_SYSTEM_PROMPT = "You are a helpful assistant."
+
+GENERAL_PROMPTS = (
+    ("What is 17 times 24?", "17 times 24 is 408."),
+    ("Add 2, 5, and 11.", "2 + 5 + 11 = 18."),
+    ("Is 91 a prime number?", "No, 91 is not prime: it equals 7 times 13."),
+    ("What is 15% of 240?", "15% of 240 is 36."),
+    ("What comes next: 2, 6, 12, 20, 30, ...?", "The next number is 42; the differences are 4, 6, 8, 10, 12."),
+    ("Capital of Australia?", "The capital of Australia is Canberra."),
+    ("Which planet is known as the Red Planet?", "Mars is known as the Red Planet."),
+    ("Who wrote Pride and Prejudice?", "Pride and Prejudice was written by Jane Austen."),
+    ("What is the boiling point of water at sea level in Celsius?", "Water boils at 100 degrees Celsius at sea level."),
+    ("Name the largest ocean on Earth.", "The largest ocean on Earth is the Pacific Ocean."),
+    ("Summarize in one sentence: the team shipped late, and the customer churned.",
+     "The team shipped late and the customer churned as a result."),
+    ("Rewrite politely: send me the file now.", "Could you please send me the file when you have a moment?"),
+    ("Translate to Spanish: good morning.", "Buenos dias."),
+    ("Translate to French: thank you very much.", "Merci beaucoup."),
+    ("Classify the sentiment: the review was dull and overpriced.", "Negative."),
+    ("Classify the sentiment: fast delivery and the product works well.", "Positive."),
+    ("Write a Python one-liner that reverses a string s.", "The expression s[::-1] returns the string reversed."),
+    ("What does the SQL keyword JOIN do?", "JOIN combines rows from two tables using a related column."),
+    ("Explain what an HTTP 404 status means.", "HTTP 404 means the server could not find the requested resource."),
+    ("What is a deadlock in computing?", "A deadlock is when two or more processes each wait for a resource the other holds, so none can proceed."),
+    ("Give one advantage of unit tests.", "Unit tests catch regressions early and document expected behaviour."),
+    ("What is the difference between RAM and a hard disk?",
+     "RAM is fast volatile working memory; a hard disk is slower persistent storage."),
+    ("How many minutes are in two and a half hours?", "Two and a half hours is 150 minutes."),
+    ("Sort these numbers ascending: 9, 2, 14, 7.", "Ascending order: 2, 7, 9, 14."),
+)
+
+
+def build_general_set():
+    """Chat records with free-form answers, used only by the forgetting check."""
+    return [{
+        "messages": [
+            {"role": "system", "content": GENERAL_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": answer},
+        ],
+        "meta": {"tool": None, "family": None, "omitted": [], "entities": "general"},
+    } for prompt, answer in GENERAL_PROMPTS]
+
+
 def main(output_dir=DATA_DIR):
     output_dir = Path(output_dir)
     splits = build_splits()
     for name, samples in splits.items():
         save_jsonl(to_chat_format(samples), output_dir / f"{name}.jsonl")
         print(f"  {name + '.jsonl':26} {len(samples):4} records")
+    save_jsonl(build_general_set(), output_dir / "general.jsonl")
+    print(f"  {'general.jsonl':26} {len(GENERAL_PROMPTS):4} records (for the forgetting check)")
     print(f"Dataset written to {output_dir}")
     return splits
 

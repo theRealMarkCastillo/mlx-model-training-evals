@@ -1,27 +1,27 @@
-"""Regression tests for data validity, scoring, statistics, provenance, and real MLX training."""
+"""MLX-dependent tests: evaluation plumbing, streaming/benchmark metrics, loss masking, real training.
+
+Pure-Python tests live in tests/test_core.py so they can run on Linux CI.
+"""
 import copy
 import json
 import math
-from pathlib import Path
 import tempfile
-from types import SimpleNamespace
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import mlx.core as mx
 import mlx.nn as nn
-from mlx_lm.tuner.utils import linear_to_lora_layers
 import yaml
-from pydantic import ValidationError
+from mlx_lm.tuner.utils import linear_to_lora_layers
 
-from src import benchmark, evaluate, train, inference
-from src.dataset import DATA_DIR, fewshot_messages, load_samples, select_shots, validate_splits
+from src import benchmark, evaluate, forgetting, inference, train
+from src.dataset import DATA_DIR
 from src.explain import loss_mask_tokens, mask_counts, parameter_summary
-from src.generate_data import ACTION_TOOLS, SEEN, UNSEEN, build_splits, to_chat_format
-from src.metrics import failure_examples, paired_comparison, score_sample, summarize, wilson_interval
+from src.metrics import score_sample, summarize
 from src.runs import file_identity, latest_path, resolve_adapter_source
-from src.schema import ToolCall, parse_and_validate, PARAM_MODEL_MAP
-
+from src.schema import parse_and_validate
 
 TARGET = {'tool': 'deploy_service', 'parameters': {
     'service': 'api', 'version': 'v1', 'environment': 'production',
@@ -39,174 +39,6 @@ def sample(target=None, meta=None):
 
 def generation(text):
     return {'raw_output': text, 'output_tokens': 2, 'latency_seconds': 0.1, 'finish_reason': 'stop'}
-
-
-class SchemaTests(unittest.TestCase):
-    def test_malformed_envelopes_never_crash(self):
-        for value in ([], {}, 1, True, None, 'wrong'):
-            result = parse_and_validate(json.dumps({'tool': value, 'parameters': {}}))
-            self.assertFalse(result['is_schema_valid'])
-        for text in ('[]', 'null', '1', 'nonsense', '{', '```json\n{}\n```'):
-            self.assertFalse(parse_and_validate(text)['is_schema_valid'])
-
-    def test_strict_types_and_extras(self):
-        for value in ('3', True, 3.0):
-            payload = copy.deepcopy(TARGET)
-            payload['parameters']['replicas'] = value
-            self.assertFalse(parse_and_validate(json.dumps(payload))['is_schema_valid'])
-        for location in ('top', 'parameters'):
-            payload = copy.deepcopy(TARGET)
-            (payload if location == 'top' else payload['parameters'])['invented'] = 1
-            self.assertFalse(parse_and_validate(json.dumps(payload))['is_schema_valid'])
-
-    def test_discriminator_rejects_wrong_parameters(self):
-        with self.assertRaises(ValidationError):
-            ToolCall.model_validate({'tool': 'deploy_service', 'parameters': {'deployment_id': 'dep1', 'target_tag': 'v1'}})
-        with self.assertRaises(ValidationError):
-            ToolCall.model_validate({'tool': 'no_action', 'parameters': {'reason': 'because'}})
-
-    def test_raw_data_preserved_and_defaults_separate(self):
-        payload = copy.deepcopy(TARGET)
-        del payload['parameters']['notify_channels']
-        result = parse_and_validate(json.dumps(payload))
-        self.assertTrue(result['is_schema_valid'])
-        self.assertEqual(result['parsed_data'], payload)
-        self.assertEqual(result['normalized_data'], TARGET)
-
-    def test_wrappers_duplicates_constants_and_literal_backticks(self):
-        text = json.dumps(TARGET)
-        result = parse_and_validate('Here is the call:\n```json\n' + text + '\n```')
-        self.assertTrue(result['is_schema_valid'])
-        self.assertFalse(result['is_pure_json'])
-        for bad in ('{"tool":"a","tool":"b"}', '{"tool":NaN}', '{"tool":Infinity}', '{"tool":1e999}'):
-            self.assertFalse(parse_and_validate(bad)['is_valid_json'])
-        payload = {'tool': 'restart_pod', 'parameters': {'pod_name': 'p', 'region': 'r', 'reason': 'literal ```', 'force': False}}
-        self.assertTrue(parse_and_validate(json.dumps(payload))['is_pure_json'])
-
-    def test_stray_brace_before_json_is_skipped(self):
-        result = parse_and_validate('I will use {tool} now: ' + json.dumps(TARGET))
-        self.assertTrue(result['is_schema_valid'])
-        self.assertFalse(result['is_pure_json'])
-
-
-class DatasetTests(unittest.TestCase):
-    def test_regenerated_data_is_reproducible_disjoint_and_grounded(self):
-        splits = build_splits()
-        self.assertEqual(splits, build_splits())
-        prompts = set()
-        for name, records in splits.items():
-            stored = [json.loads(line) for line in (DATA_DIR / f'{name}.jsonl').read_text().splitlines()]
-            self.assertEqual(stored, to_chat_format(records))
-            for record in records:
-                self.assertNotIn(record['prompt'], prompts)
-                prompts.add(record['prompt'])
-                target = ToolCall.model_validate_json(record['completion']).model_dump()
-                params, meta = target['parameters'], record['meta']
-                defaults = {f: info.get_default(call_default_factory=True)
-                            for f, info in PARAM_MODEL_MAP[target['tool']].model_fields.items() if not info.is_required()}
-                for field in meta['omitted']:
-                    self.assertEqual(params[field], defaults[field], (name, record['prompt']))
-                if target['tool'] == 'deploy_service':
-                    channels = SEEN.channels + UNSEEN.channels
-                    self.assertEqual(set(params['notify_channels']), {ch for ch in channels if ch in record['prompt']})
-                if target['tool'] == 'restart_pod':
-                    self.assertIn(params['reason'], record['prompt'])
-                if target['tool'] != 'no_action':
-                    for value in params.values():
-                        if isinstance(value, str) and value not in defaults.values() and target['tool'] != 'deploy_service':
-                            self.assertIn(value, record['prompt'])
-        validate_splits()
-
-    def test_split_design(self):
-        splits = build_splits()
-        self.assertEqual({len(splits[n]) for n in ('train', 'valid', 'test')}, {250, 50, 75})
-        families = {name: {r['meta']['family'] for r in records} for name, records in splits.items()}
-        self.assertEqual(families['train'], {0, 1})
-        self.assertEqual((families['valid'], families['test']), ({2}, {3}))
-        tools = [r['meta']['tool'] for r in splits['test']]
-        self.assertEqual({tools.count(t) for t in set(tools)}, {15})
-        self.assertTrue(any(r['meta']['omitted'] for r in splits['train']))
-        # Unseen entities never occur in standard splits.
-        train_text = ' '.join(r['prompt'] for r in splits['train'])
-        for service in UNSEEN.services:
-            self.assertNotIn(service, train_text)
-        self.assertTrue(all(r['meta']['entities'] == 'unseen' for r in splits['challenge_entities']))
-        self.assertTrue(all(r['meta']['tool'] in ACTION_TOOLS for r in splits['challenge_entities']))
-        self.assertTrue(all(r['meta']['omitted'] for r in splits['challenge_defaults']))
-        self.assertTrue(all(r['meta']['tool'] == 'no_action' for r in splits['challenge_abstain']))
-
-    def test_balanced_subsets_and_shots(self):
-        subset = load_samples(DATA_DIR / 'test.jsonl', 10)
-        tools = [r['expected']['tool'] for r in subset]
-        self.assertEqual({tools.count(t) for t in set(tools)}, {2})
-        shots = select_shots(count=5)
-        self.assertEqual(len({s['expected']['tool'] for s in shots}), 5)
-        self.assertTrue(all(s['id'].startswith('train.jsonl') for s in shots))
-        messages = fewshot_messages(sample()['messages'], shots[:2])
-        self.assertEqual([m['role'] for m in messages], ['system', 'user', 'assistant', 'user', 'assistant', 'user', 'assistant'])
-        self.assertEqual(messages[-2]['content'], 'request')
-
-    def test_empty_invalid_and_nonpositive_inputs(self):
-        for count in (0, -1):
-            with self.assertRaises(ValueError):
-                load_samples(DATA_DIR / 'test.jsonl', count)
-        with tempfile.TemporaryDirectory() as tmp:
-            path = Path(tmp) / 'empty.jsonl'
-            path.write_text('')
-            with self.assertRaises(ValueError):
-                load_samples(path)
-
-
-class MetricsTests(unittest.TestCase):
-    def test_wilson_interval(self):
-        low, high = wilson_interval(12, 15)
-        self.assertAlmostEqual(low, 0.548, places=2)
-        self.assertAlmostEqual(high, 0.930, places=2)
-        self.assertEqual(wilson_interval(0, 10)[0], 0.0)
-        self.assertLess(wilson_interval(0, 10)[1], 0.35)
-        self.assertEqual(wilson_interval(10, 10)[1], 1.0)
-
-    def test_paired_comparison(self):
-        a = [{'id': str(i), 'param_exact': i < 9} for i in range(10)]
-        b = [{'id': str(i), 'param_exact': i < 1} for i in range(10)]
-        result = paired_comparison(a, b)
-        self.assertEqual((result['both_correct'], result['only_a'], result['only_b'], result['neither']), (1, 8, 0, 1))
-        self.assertAlmostEqual(result['p_value'], 2 / 2 ** 8)
-        self.assertEqual(paired_comparison(a, a)['p_value'], 1.0)
-        with self.assertRaises(ValueError):
-            paired_comparison(a, list(reversed(b)))
-
-    def test_categories_and_fields(self):
-        missing = copy.deepcopy(TARGET)
-        del missing['parameters']['notify_channels']
-        wrong = copy.deepcopy(TARGET)
-        wrong['parameters']['replicas'] = 4
-        cases = {json.dumps(TARGET): None, json.dumps(missing): 'omitted_default', json.dumps(wrong): 'parameters',
-                 'x ' + json.dumps(TARGET): 'format', '{"tool":"no_action","parameters":{"reason":"unsupported_request"}}': 'tool',
-                 '{"tool":"deploy_service"}': 'schema', 'nope': 'json'}
-        normalized = ToolCall.model_validate(TARGET).model_dump()
-        for text, category in cases.items():
-            scored = score_sample(TARGET, normalized, parse_and_validate(text))
-            self.assertEqual(scored['error_category'], category, text)
-        scored = score_sample(TARGET, normalized, parse_and_validate(json.dumps(wrong)))
-        self.assertEqual(scored['wrong_fields'], ['replicas'])
-
-    def test_summary_breakdowns(self):
-        normalized = ToolCall.model_validate(TARGET).model_dump()
-        outputs = [json.dumps(TARGET), 'nope', json.dumps(TARGET)]
-        results = []
-        for i, text in enumerate(outputs):
-            parsed = parse_and_validate(text)
-            results.append({'id': str(i), 'prompt': 'p', 'expected': TARGET, 'raw_output': text,
-                            'meta': {'omitted': ['replicas'] if i == 2 else []},
-                            **parsed, **score_sample(TARGET, normalized, parsed)})
-        summary = summarize(results)
-        self.assertAlmostEqual(summary['exact_match_rate'], 2 / 3)
-        self.assertEqual(summary['per_tool']['deploy_service']['n'], 3)
-        self.assertAlmostEqual(summary['per_field']['deploy_service']['replicas'], 2 / 3)
-        self.assertEqual(summary['error_categories']['json'], 1)
-        self.assertEqual(summary['slices']['omitted_optional']['n'], 1)
-        self.assertEqual([e['category'] for e in failure_examples(results)], ['json'])
 
 
 class EvaluationTests(unittest.TestCase):
@@ -251,7 +83,7 @@ class EvaluationTests(unittest.TestCase):
             (adapter / 'adapter_config.json').write_text('{}')
             seen_messages = []
 
-            def fake_eval(model, tokenizer, samples, max_tokens, desc):
+            def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0):
                 seen_messages.append((desc, len(samples[0]['messages'])))
                 results = []
                 for s in samples:
@@ -299,6 +131,33 @@ class EvaluationTests(unittest.TestCase):
                 evaluate.run_comprehensive_evaluation(variants=('nope',))
             load.assert_not_called()
 
+    def test_constrained_flag_adds_a_grammar_variant_and_only_it_is_constrained(self):
+        used_generate = []
+
+        def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0):
+            used_generate.append((desc.split('/')[0], generate is not None))
+            results = []
+            for s in samples:
+                parsed = parse_and_validate(s['messages'][-1]['content'])
+                results.append({'id': s['id'], 'prompt': s['prompt'], 'expected': s['expected'], 'meta': s['meta'],
+                                'raw_output': '', 'output_tokens': 1, **parsed,
+                                **score_sample(s['expected'], s['normalized_expected'], parsed)})
+            return {**summarize(results), 'sample_results': results, 'avg_output_tokens': 1}
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(evaluate, 'resolve_source', return_value=('base', {'revision': 'r'})), \
+                patch.object(evaluate.mlx_lm, 'load', return_value=(object(), object())), \
+                patch.object(evaluate, 'compute_perplexity', return_value={'loss': 1., 'perplexity': math.e}), \
+                patch.object(evaluate, 'run_deterministic_eval', side_effect=fake_eval):
+            report = evaluate.run_comprehensive_evaluation(variants=('base',), output_dir=tmp,
+                                                           num_eval_samples=5, constrained=True, quiet=True)
+        self.assertEqual(report['variants'], ['base', 'grammar'])
+        self.assertTrue(report['constrained'])
+        constrained_variants = {variant for variant, is_constrained in used_generate if is_constrained}
+        unconstrained_variants = {variant for variant, is_constrained in used_generate if not is_constrained}
+        self.assertEqual(constrained_variants, {'grammar'})
+        self.assertEqual(unconstrained_variants, {'base'})
+
 
 class StreamingTests(unittest.TestCase):
     def test_stream_metadata_and_chat_template(self):
@@ -329,6 +188,11 @@ class StreamingTests(unittest.TestCase):
         self.assertEqual(generate.call_args.args[2][0]['role'], 'system')
         self.assertEqual(report['avg_decode_tokens_per_sec'], 20.)
         self.assertEqual(len(report['runs']), 2)
+        # Spread is reported, not just the mean: Macs thermal-throttle mid-benchmark.
+        for key in ('decode_tokens_per_sec', 'ttft_seconds', 'latency_seconds'):
+            self.assertEqual(report[f'min_{key}'], report[f'avg_{key}'])
+            self.assertEqual(report[f'max_{key}'], report[f'avg_{key}'])
+            self.assertEqual(report[f'std_{key}'], 0.0)
 
 
 class TinyBlock(nn.Module):
@@ -450,6 +314,105 @@ class TrainingTests(unittest.TestCase):
             self.assertEqual(manifest['status'], 'failed')
             self.assertIn('out of memory', manifest['error'])
             self.assertFalse((root / 'adapters' / 'latest.json').exists())
+
+
+class DataTokenStatsTests(unittest.TestCase):
+    def test_token_stats_split_prompt_from_scored_answer(self):
+        from src.show_data import token_stats
+
+        stats = token_stats(DATA_DIR / 'test.jsonl', TinyTokenizer())
+        # TinyTokenizer: 5 tokens for the full chat, 2 up to the answer prompt.
+        self.assertEqual((stats['prompt_mean'], stats['prompt_min'], stats['prompt_max']), (2.0, 2, 2))
+        self.assertEqual((stats['answer_mean'], stats['answer_min'], stats['answer_max']), (3.0, 3, 3))
+
+
+class ForgettingTests(unittest.TestCase):
+    def _adapter(self, root):
+        adapter = Path(root) / 'adapters'
+        adapter.mkdir()
+        (adapter / 'adapters.safetensors').write_bytes(b'test')
+        (adapter / 'adapter_config.json').write_text('{}')
+        return str(adapter)
+
+    def test_forgetting_check_pairs_base_and_lora_and_tests_the_direction(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = self._adapter(tmp)
+            loaded = []
+
+            def fake_load(source, **kwargs):
+                variant = 'lora' if kwargs.get('adapter_path') else 'base'
+                loaded.append(variant)
+                return variant, object()   # (model, tokenizer); the tag is the model
+
+            def fake_losses(model, tokenizer, samples):
+                return {s['id']: (0.5 if model == 'base' else 0.9) for s in samples}
+
+            with patch.object(forgetting, 'resolve_adapter_source', return_value=('base-snapshot', {'revision': 'abc'})), \
+                    patch.object(forgetting.mlx_lm, 'load', side_effect=fake_load), \
+                    patch.object(forgetting, 'per_record_losses', side_effect=fake_losses), \
+                    patch.object(forgetting, 'plot_forgetting'):
+                result = forgetting.run_forgetting_check(adapter_path=adapter, output_dir=tmp,
+                                                        max_samples=8, quiet=True)
+            self.assertEqual(loaded, ['base', 'lora'])
+            self.assertAlmostEqual(result['base_loss'], 0.5)
+            self.assertAlmostEqual(result['lora_loss'], 0.9)
+            self.assertAlmostEqual(result['delta'], 0.4)
+            self.assertEqual(result['sign_test']['increased'], 8)
+            self.assertLess(result['sign_test']['p_value'], 0.02)
+            self.assertIn('worse', result['verdict'])
+            self.assertEqual(len(result['per_record']), 8)
+            manifest = json.loads((Path(result['run_dir']) / 'manifest.json').read_text())
+            self.assertEqual(manifest['status'], 'complete')
+            self.assertEqual(manifest['kind'], 'forgetting')
+            self.assertEqual(manifest['result']['sign_test']['increased'], 8)
+            self.assertTrue((Path(result['run_dir']) / 'forgetting.json').is_file())
+
+    def test_forgetting_check_verdict_stays_cautious_when_nothing_moved(self):
+        verdict = forgetting.forgetting_verdict(1.0, 1.02, {'increased': 5, 'decreased': 4,
+                                                            'unchanged': 15, 'p_value': 1.0})
+        self.assertIn('No detectable damage', verdict)
+        self.assertIn('never that it was preserved', verdict)
+
+
+class TemperatureTests(unittest.TestCase):
+    def test_inference_passes_temperature_to_the_sampler(self):
+        records = [SimpleNamespace(text='a', generation_tokens=1, prompt_tokens=2, prompt_tps=30.,
+                                   generation_tps=20., finish_reason='stop')]
+        with patch('src.inference.make_sampler', return_value='sampler') as sampler, \
+                patch.object(inference.mlx_lm, 'stream_generate', return_value=iter(records)):
+            inference.generate_response(object(), TinyTokenizer(), sample()['messages'][:-1], temperature=0.7)
+        sampler.assert_called_once_with(temp=0.7)
+        for bad in (-0.1, 2.5):
+            with self.assertRaises(ValueError):
+                inference.generate_response(object(), TinyTokenizer(), sample()['messages'][:-1], temperature=bad)
+
+    def test_evaluation_records_temperature_and_seed_and_forwards_them(self):
+        seen = {}
+
+        def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0):
+            seen.setdefault('temperature', temperature)
+            results = []
+            for s in samples:
+                parsed = parse_and_validate(s['messages'][-1]['content'])
+                results.append({'id': s['id'], 'prompt': s['prompt'], 'expected': s['expected'], 'meta': s['meta'],
+                                'raw_output': '', 'output_tokens': 1, **parsed,
+                                **score_sample(s['expected'], s['normalized_expected'], parsed)})
+            return {**summarize(results), 'sample_results': results, 'avg_output_tokens': 1}
+
+        with tempfile.TemporaryDirectory() as tmp, \
+                patch.object(evaluate, 'resolve_source', return_value=('base', {'revision': 'r'})), \
+                patch.object(evaluate.mlx_lm, 'load', return_value=(object(), object())), \
+                patch.object(evaluate, 'compute_perplexity', return_value={'loss': 1., 'perplexity': math.e}), \
+                patch.object(evaluate, 'run_deterministic_eval', side_effect=fake_eval):
+            report = evaluate.run_comprehensive_evaluation(variants=('base',), output_dir=tmp, num_eval_samples=4,
+                                                           temperature=0.7, seed=7, quiet=True)
+            manifest = json.loads((Path(report['run_dir']) / 'manifest.json').read_text())
+        self.assertEqual(seen['temperature'], 0.7)
+        self.assertEqual(manifest['generation']['temperature'], 0.7)
+        self.assertEqual(manifest['generation']['seed'], 7)
+        self.assertEqual(report['temperature'], 0.7)
+        with self.assertRaises(ValueError):
+            evaluate.run_comprehensive_evaluation(temperature=3.0)
 
 
 if __name__ == '__main__':

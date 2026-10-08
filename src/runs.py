@@ -1,14 +1,14 @@
 """Run provenance and immutable artifact directories with small latest pointers."""
 
-from contextlib import contextmanager
-from datetime import datetime, timezone
 import hashlib
-from importlib.metadata import version
 import json
-from pathlib import Path
 import platform
 import subprocess
 import traceback
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from importlib.metadata import version
+from pathlib import Path
 from uuid import uuid4
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -66,14 +66,14 @@ def _source_files():
 
 
 def new_run(root, kind, **inputs):
-    run_id = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ') + '-' + uuid4().hex[:8]
+    run_id = datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ') + '-' + uuid4().hex[:8]
     directory = Path(root).resolve() / 'runs' / f'{kind}-{run_id}'
     directory.mkdir(parents=True)
     git = subprocess.run(['git', 'rev-parse', 'HEAD'], capture_output=True, text=True, cwd=REPO_ROOT)
     status = subprocess.run(['git', 'status', '--porcelain'], capture_output=True, text=True, cwd=REPO_ROOT)
     manifest = {
         'schema_version': 3, 'run_id': run_id, 'kind': kind, 'run_dir': str(directory),
-        'created_at': datetime.now(timezone.utc).isoformat(), 'status': 'started',
+        'created_at': datetime.now(UTC).isoformat(), 'status': 'started',
         'python': platform.python_version(), 'platform': platform.platform(),
         'versions': {p: version(p) for p in ('mlx', 'mlx-lm', 'pydantic', 'transformers')},
         'git_commit': git.stdout.strip() if git.returncode == 0 else None,
@@ -94,7 +94,7 @@ def record_failure(directory, manifest):
         manifest.update(
             status='failed', error=f'{type(exc).__name__}: {exc}',
             traceback=traceback.format_exc(),
-            failed_at=datetime.now(timezone.utc).isoformat(),
+            failed_at=datetime.now(UTC).isoformat(),
         )
         write_json(Path(directory) / 'manifest.json', manifest)
         raise

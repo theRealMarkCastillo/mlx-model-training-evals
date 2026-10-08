@@ -1,7 +1,7 @@
 """Measure the chat workload using streaming token metadata and wall-clock latency."""
 
 from pathlib import Path
-from statistics import mean
+from statistics import mean, pstdev
 
 import mlx.core as mx
 import mlx_lm
@@ -12,8 +12,16 @@ from src.dataset import positive_int
 from src.fuse import fuse_model
 from src.inference import generate_response
 from src.models import resolve_model_paths
-from src.runs import (adapter_identity, finish_run, latest_path, new_run, record_failure,
-                      resolve_adapter_source, resolve_source, write_json)
+from src.runs import (
+    adapter_identity,
+    finish_run,
+    latest_path,
+    new_run,
+    record_failure,
+    resolve_adapter_source,
+    resolve_source,
+    write_json,
+)
 from src.schema import SYSTEM_PROMPT
 
 console = Console()
@@ -30,11 +38,18 @@ def benchmark_generation(model, tokenizer, prompt, max_tokens=120, warmup=2, run
         generate_response(model, tokenizer, messages, max_tokens)
     mx.reset_peak_memory()
     records = [generate_response(model, tokenizer, messages, max_tokens) for _ in range(runs)]
+    keys = ('ttft_seconds', 'latency_seconds', 'prefill_tokens_per_sec',
+            'decode_tokens_per_sec', 'end_to_end_tokens_per_sec', 'output_tokens', 'prompt_tokens')
+    stats = {f'avg_{key}': mean(r[key] for r in records) for key in keys}
+    # Macs thermal-throttle: a decode rate of 41 tok/s with min 38 / max 44 is a different
+    # story from min 25 / max 55, so report the spread instead of only the mean.
+    for key in keys:
+        values = [r[key] for r in records]
+        stats[f'min_{key}'] = min(values)
+        stats[f'max_{key}'] = max(values)
+        stats[f'std_{key}'] = pstdev(values) if len(values) > 1 else 0.0
     return {
-        **{f'avg_{key}': mean(r[key] for r in records) for key in (
-            'ttft_seconds', 'latency_seconds', 'prefill_tokens_per_sec',
-            'decode_tokens_per_sec', 'end_to_end_tokens_per_sec', 'output_tokens', 'prompt_tokens',
-        )},
+        **stats,
         'peak_metal_memory_mb': mx.get_peak_memory() / (1024**2),
         'active_metal_memory_mb': mx.get_active_memory() / (1024**2),
         'runs': records,
@@ -79,13 +94,17 @@ def run_benchmark_suite(
             finally:
                 del model
                 mx.clear_cache()
-        table = Table(title='Chat inference benchmark (means over measured runs)')
+        table = Table(title='Chat inference benchmark (mean ± population sd over measured runs)')
         table.add_column('Metric')
         for name, _, _ in variants:
             table.add_column(name, justify='right')
         for key in ('avg_ttft_seconds', 'avg_latency_seconds', 'avg_prefill_tokens_per_sec',
-                    'avg_decode_tokens_per_sec', 'avg_end_to_end_tokens_per_sec', 'avg_output_tokens', 'peak_metal_memory_mb'):
-            table.add_row(key, *(f"{report[f'{name}_stats'][key]:.3f}" for name, _, _ in variants))
+                    'avg_decode_tokens_per_sec', 'avg_end_to_end_tokens_per_sec', 'avg_output_tokens'):
+            table.add_row(key.replace('avg_', ''),
+                          *(f"{report[f'{name}_stats'][key]:.3f} ± "
+                            f"{report[f'{name}_stats'][key.replace('avg_', 'std_')]:.3f}" for name, _, _ in variants))
+        table.add_row('peak_metal_memory_mb',
+                      *(f"{report[f'{name}_stats']['peak_metal_memory_mb']:.0f}" for name, _, _ in variants))
         console.print(table)
         if fused_path:
             from src.evaluate import run_comprehensive_evaluation

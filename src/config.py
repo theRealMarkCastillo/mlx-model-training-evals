@@ -4,13 +4,12 @@ Validation happens before any model is downloaded or loaded, so a typo costs
 milliseconds rather than a multi-gigabyte download.
 """
 
-from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal
 
 import mlx_lm.lora as lora
 from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, field_validator, model_validator
 
-from src.models import PRESETS, DEFAULT_PRESET
+from src.models import DEFAULT_PRESET, PRESETS
 from src.runs import repo_path
 
 BASE_CONFIG = "config/base.yaml"
@@ -22,7 +21,7 @@ class LoraParameters(BaseModel):
     rank: PositiveInt
     scale: PositiveFloat
     dropout: float = Field(ge=0, lt=1)
-    keys: Optional[list[str]] = None
+    keys: list[str] | None = None
 
 
 class TrainingConfig(BaseModel):
@@ -94,13 +93,21 @@ def apply_overrides(config, overrides):
 
 
 def load_training_config(config_path=None, preset=None, overrides=None):
-    """A standalone --config file, or base.yaml merged with a preset."""
+    """A standalone --config file, or base.yaml merged with a preset.
+
+    Relative `data` and `adapter_path` values are resolved against the
+    repository root (absolute paths pass through), in both branches, so a
+    standalone config behaves the same no matter which directory you run from.
+    """
     if config_path is not None and preset is not None:
         raise ValueError("Choose a config file or a preset, not both.")
     if config_path is not None:
         config = _load_yaml(config_path)
     else:
         config = {**_load_yaml(repo_path(BASE_CONFIG)), **PRESETS[preset or DEFAULT_PRESET].overrides()}
-        config["data"] = str(repo_path(config["data"]))
+    # Resolve only the keys that exist; missing ones are reported by Pydantic.
+    for key in ("data", "adapter_path"):
+        if key in config:
+            config[key] = str(repo_path(config[key]))
     config = apply_overrides(config, overrides)
     return TrainingConfig.model_validate(config).model_dump(exclude_none=True)

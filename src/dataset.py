@@ -1,8 +1,8 @@
 """Canonical chat records shared by training validation and both evaluation paths."""
 
+import json
 from collections import defaultdict
 from itertools import zip_longest
-import json
 from pathlib import Path
 
 from src.runs import REPO_ROOT
@@ -59,6 +59,34 @@ def load_samples(path, max_samples=None):
     if max_samples is None or max_samples >= len(records):
         return records
     return _balanced_prefix(records, max_samples)
+
+
+def load_general_samples(path, max_samples=None):
+    """Chat records with free-form assistant text, for the forgetting check.
+
+    Unlike `load_samples`, the assistant turn is not a tool call: these records are
+    scored by assistant loss, not by exact match, so any non-empty text is valid.
+    """
+    if max_samples is not None:
+        positive_int(max_samples)
+    path = Path(path)
+    records = []
+    for line_number, line in enumerate(path.read_text().splitlines(), 1):
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        messages = record.get("messages", [])
+        if ([m.get("role") for m in messages] != ["system", "user", "assistant"]
+                or any(not isinstance(m.get("content"), str) or not m["content"].strip() for m in messages)):
+            raise ValueError(f"{path}:{line_number}: expected non-empty system, user, assistant text messages")
+        records.append({
+            "id": f"{path.name}:{line_number}", "messages": messages,
+            "prompt": messages[1]["content"], "expected": messages[-1]["content"],
+            "meta": record.get("meta"),
+        })
+    if not records:
+        raise ValueError(f"Empty dataset: {path}")
+    return records[:max_samples] if max_samples and max_samples < len(records) else records
 
 
 def validate_splits(data_dir=DATA_DIR):

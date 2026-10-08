@@ -1,16 +1,17 @@
 """MLX LoRA training with loss telemetry, memory measurement, and run provenance."""
 
-from pathlib import Path
 import time
 import types
+from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mlx.core as mx
 import mlx_lm.lora as lora
-from mlx_lm.tuner.callbacks import TrainingCallback
 import numpy as np
+from mlx_lm.tuner.callbacks import TrainingCallback
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -18,8 +19,8 @@ from rich.table import Table
 from src.config import load_training_config
 from src.dataset import validate_splits
 from src.explain import parameter_summary
-from src.models import PRESETS, DEFAULT_PRESET
-from src.runs import resolve_source, file_identity, directory_identity, new_run, finish_run, record_failure, write_json
+from src.models import DEFAULT_PRESET, PRESETS
+from src.runs import directory_identity, file_identity, finish_run, new_run, record_failure, resolve_source, write_json
 
 console = Console()
 

@@ -1,25 +1,25 @@
 """Offline end-to-end check with a locally constructed miniature Qwen model."""
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 import mlx.core as mx
 import mlx.nn as nn
+import yaml
 from mlx.utils import tree_flatten
 from mlx_lm.models.qwen2 import Model, ModelArgs
 from tokenizers import Tokenizer
+from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from tokenizers.models import BPE
 from tokenizers.pre_tokenizers import ByteLevel
-from tokenizers.decoders import ByteLevel as ByteLevelDecoder
 from transformers import PreTrainedTokenizerFast
-import yaml
 
-from src.train import run_training
 from src.benchmark import run_benchmark_suite
 from src.dataset import DATA_DIR
 from src.evaluate import run_comprehensive_evaluation
 from src.runs import latest_path
+from src.train import run_training
 
 
 class WorkflowIntegrationTests(unittest.TestCase):

@@ -3,10 +3,11 @@ Schema definitions and validation utilities for tool calling.
 Uses Pydantic v2 to enforce strict typing, validation, and serialization.
 """
 
-from typing import Annotated, Literal, Union, List, Dict, Any
-from pydantic import BaseModel, ConfigDict, Field, RootModel
 import json
 import math
+from typing import Annotated, Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 
 class StrictModel(BaseModel):
@@ -20,7 +21,7 @@ class DeployServiceParams(StrictModel):
         description="Target deployment environment"
     )
     replicas: int = Field(default=2, ge=1, le=100, description="Number of replica instances")
-    notify_channels: List[str] = Field(
+    notify_channels: list[str] = Field(
         default_factory=list, description="Slack or webhook notification channels (e.g. ['#deployments'])"
     )
 
@@ -79,7 +80,7 @@ class NoActionCall(StrictModel):
 
 
 class ToolCall(RootModel[Annotated[
-    Union[DeployServiceCall, RestartPodCall, RollbackDeploymentCall, ScaleClusterCall, NoActionCall],
+    DeployServiceCall | RestartPodCall | RollbackDeploymentCall | ScaleClusterCall | NoActionCall,
     Field(discriminator="tool"),
 ]]):
     """Bind each tool name to exactly its own parameter schema."""
@@ -161,10 +162,12 @@ def _first_embedded_object(decoder, text):
     raise ValueError("No JSON object found")
 
 
-def parse_and_validate(raw_text: str) -> Dict[str, Any]:
+def parse_and_validate(raw_text: str) -> dict[str, Any]:
     """Validate without modifying decoded data; normalized defaults are separate.
 
     A recoverable object inside chatter counts as valid JSON but not pure JSON.
+    "Valid JSON" means a JSON *object* was recovered: bare scalars and arrays
+    are treated the same as no JSON at all, since the task contract is one object.
     Duplicate keys and nonstandard numeric constants are rejected.
     """
     result = {
@@ -177,11 +180,13 @@ def parse_and_validate(raw_text: str) -> Dict[str, Any]:
     try:
         try:
             parsed = decoder.decode(text)
-            result["is_pure_json"] = isinstance(parsed, dict)
+            is_pure = isinstance(parsed, dict)
         except json.JSONDecodeError:
             parsed = _first_embedded_object(decoder, text)
+            is_pure = False
         result["parsed_data"] = parsed
-        result["is_valid_json"] = True
+        result["is_pure_json"] = is_pure
+        result["is_valid_json"] = isinstance(parsed, dict)
         validated = ToolCall.model_validate(parsed)
         result["normalized_data"] = validated.model_dump()
         result["is_schema_valid"] = True

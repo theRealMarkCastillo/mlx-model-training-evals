@@ -6,9 +6,9 @@ be anywhere from about 55% to 93%, so small differences between variants are
 often noise.
 """
 
-from collections import Counter, defaultdict
 import json
 import math
+from collections import Counter, defaultdict
 
 RATE_FLAGS = {
     "pure_json_rate": "is_pure_json", "valid_json_rate": "is_valid_json",
@@ -148,7 +148,7 @@ def paired_comparison(results_a, results_b, flag="param_exact"):
     is better; only the discordant pairs do. The p-value is the chance of a
     split at least this lopsided if the two variants were equally good.
     """
-    pairs = list(zip(results_a, results_b))
+    pairs = list(zip(results_a, results_b, strict=False))
     if not pairs or any(a["id"] != b["id"] for a, b in pairs) or len(results_a) != len(results_b):
         raise ValueError("Paired comparison needs results for the same samples in the same order")
     only_a = sum(bool(a[flag]) and not b[flag] for a, b in pairs)
@@ -158,3 +158,37 @@ def paired_comparison(results_a, results_b, flag="param_exact"):
     tail = sum(math.comb(n, k) for k in range(min(only_a, only_b) + 1)) / 2 ** n if n else 1.0
     return {"both_correct": both, "only_a": only_a, "only_b": only_b,
             "neither": len(pairs) - both - n, "p_value": min(1.0, 2 * tail)}
+
+
+def sign_test(deltas):
+    """Two-sided exact sign test for paired continuous measurements.
+
+    Used by the forgetting check: for each general-capability record we compare the
+    assistant loss before and after fine-tuning, and ask whether the losses went up
+    more often than down by a margin that sampling noise cannot explain. Records with
+    an unchanged loss are ignored, exactly like ties in a Wilcoxon test.
+    """
+    increased = sum(1 for delta in deltas if delta > 0)
+    decreased = sum(1 for delta in deltas if delta < 0)
+    n = increased + decreased
+    if not n:
+        return {"increased": 0, "decreased": 0, "unchanged": len(deltas), "p_value": 1.0}
+    tail = sum(math.comb(n, k) for k in range(min(increased, decreased) + 1)) / 2 ** n
+    return {"increased": increased, "decreased": decreased, "unchanged": len(deltas) - n,
+            "p_value": min(1.0, 2 * tail)}
+
+
+def sweep_summary(values):
+    """Mean ± spread across the points of a sweep (for example, one adapter per seed).
+
+    A single-seed number is one draw from an unknown distribution; when a sweep exists,
+    this is the honest way to quote its headline: mean with the population standard
+    deviation and the range, so the reader can see whether the points agree.
+    """
+    values = list(values)
+    if not values:
+        raise ValueError("Cannot summarize an empty sweep")
+    mean = sum(values) / len(values)
+    variance = sum((value - mean) ** 2 for value in values) / len(values)
+    return {"n": len(values), "mean": mean, "stdev": math.sqrt(variance),
+            "min": min(values), "max": max(values)}

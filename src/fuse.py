@@ -1,11 +1,18 @@
 """Fuse an adapter into a new model directory and record its provenance."""
 
-from pathlib import Path
 import subprocess
 import sys
+from pathlib import Path
 
-from src.runs import (adapter_identity, directory_identity, finish_run, new_run, record_failure,
-                      resolve_adapter_source, write_json)
+from src.runs import (
+    adapter_identity,
+    directory_identity,
+    finish_run,
+    new_run,
+    record_failure,
+    resolve_adapter_source,
+    write_json,
+)
 
 
 def fuse_model(model_name, adapter_path, save_path):

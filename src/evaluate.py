@@ -4,16 +4,21 @@ Variants:
   base     zero-shot base model with the system prompt
   fewshot  base model with worked examples from the training split (no training)
   lora     base model plus the trained adapter
+  grammar  base model with grammar-constrained decoding (`--constrained`), no training
   fused    adapter merged into the weights (optional)
 
 The few-shot baseline answers "was fine-tuning necessary?": if it scores
-close to LoRA, prompting may be the cheaper solution.
+close to LoRA, prompting may be the cheaper solution. The grammar variant
+answers the companion question: how much of the LoRA win is formatting, and how
+much is task skill? Constrained decoding cannot produce invalid JSON, so whatever
+it still gets wrong is a genuine tool-choice or parameter error.
 """
 
 import math
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import mlx.core as mx
@@ -24,19 +29,37 @@ from rich.console import Console
 from rich.table import Table
 from tqdm import tqdm
 
+from src.constrained import constrained_generate
 from src.dataset import DATA_DIR, challenge_files, fewshot_messages, load_samples, positive_int, select_shots
 from src.inference import generate_response
-from src.metrics import (CATEGORY_HELP, CATEGORY_ORDER, failure_examples, format_rate, paired_comparison,
-                         score_sample, summarize)
+from src.metrics import (
+    CATEGORY_HELP,
+    CATEGORY_ORDER,
+    failure_examples,
+    format_rate,
+    paired_comparison,
+    score_sample,
+    summarize,
+)
 from src.models import resolve_model_paths
+from src.runs import (
+    adapter_identity,
+    file_identity,
+    finish_run,
+    latest_path,
+    new_run,
+    record_failure,
+    resolve_adapter_source,
+    resolve_source,
+    write_json,
+)
 from src.schema import parse_and_validate
-from src.runs import (adapter_identity, file_identity, finish_run, latest_path, new_run, record_failure,
-                      resolve_adapter_source, resolve_source, write_json)
 
 console = Console()
 DEFAULT_VARIANTS = ("base", "fewshot", "lora")
-COLORS = {"base": "#d95f02", "fewshot": "#7570b3", "lora": "#1b9e77", "fused": "#66a61e"}
-LABELS = {"base": "Base (zero-shot)", "fewshot": "Base (few-shot)", "lora": "LoRA", "fused": "Fused LoRA"}
+COLORS = {"base": "#d95f02", "fewshot": "#7570b3", "lora": "#1b9e77", "fused": "#66a61e", "grammar": "#e7298a"}
+LABELS = {"base": "Base (zero-shot)", "fewshot": "Base (few-shot)", "lora": "LoRA", "fused": "Fused LoRA",
+          "grammar": "Base + JSON grammar"}
 
 
 def compute_perplexity(model, tokenizer, samples):
@@ -64,14 +87,22 @@ def compute_perplexity(model, tokenizer, samples):
     }
 
 
-def run_deterministic_eval(model, tokenizer, test_samples, max_tokens=150, desc="Evaluating"):
-    """Greedy-decode each prompt, parse strictly, and score against the reference."""
+def run_deterministic_eval(model, tokenizer, test_samples, max_tokens=150, desc="Evaluating",
+                           generate=None, temperature=0.0):
+    """Greedy-decode each prompt, parse strictly, and score against the reference.
+
+    `generate` is the decoding function; evaluation passes the grammar-constrained one for
+    its `grammar` variant and leaves the default (plain greedy) everywhere else.
+    `temperature > 0` samples instead of decoding greedily — the metrics are the same, but
+    a run is then a stochastic draw rather than a fixed measurement (see the README).
+    """
     if not test_samples:
         raise ValueError("Cannot evaluate an empty dataset")
     positive_int(max_tokens)
+    generate = generate or generate_response
     results = []
     for item in tqdm(test_samples, desc=desc, leave=False):
-        generated = generate_response(model, tokenizer, item["messages"][:-1], max_tokens)
+        generated = generate(model, tokenizer, item["messages"][:-1], max_tokens, temperature=temperature)
         parsed = parse_and_validate(generated["raw_output"])
         scored = score_sample(item["expected"], item.get("normalized_expected", item["expected"]), parsed)
         results.append({
@@ -100,7 +131,7 @@ def plot_eval_metrics(metrics_by_variant, output_path, title="Holdout test set")
         xs = [j + (i - (len(variants) - 1) / 2) * width for j in range(len(keys))]
         bars = ax.bar(xs, values, width, yerr=[lows, highs], capsize=3, label=LABELS.get(name, name),
                       color=COLORS.get(name), alpha=0.85, error_kw={"elinewidth": 1, "alpha": 0.7})
-        for bar, value, high in zip(bars, values, highs):
+        for bar, value, high in zip(bars, values, highs, strict=True):
             ax.annotate(f"{value:.0f}", (bar.get_x() + bar.get_width() / 2, value + high + 1),
                         ha="center", va="bottom", fontsize=7)
     ax.set_xticks(range(len(keys)), [label for _, label in keys])
@@ -117,7 +148,7 @@ def plot_eval_metrics(metrics_by_variant, output_path, title="Holdout test set")
         if not any(counts):
             continue
         ax_err.bar([LABELS.get(v, v) for v in variants], counts, bottom=bottoms, label=category, color=cmap(c))
-        bottoms = [b + n for b, n in zip(bottoms, counts)]
+        bottoms = [b + n for b, n in zip(bottoms, counts, strict=True)]
     ax_err.set_title("Failures by category", fontweight="bold")
     ax_err.set_ylabel("samples")
     ax_err.tick_params(axis="x", labelsize=8)
@@ -154,16 +185,31 @@ def plot_challenges(datasets, output_path):
     plt.close(fig)
 
 
-def paired_report(datasets, reference="lora"):
-    """McNemar comparisons of the reference variant against each other variant, per dataset."""
-    return {
-        name: {other: paired_comparison(by_variant[reference]["sample_results"], by_variant[other]["sample_results"])
-               for other in by_variant if other != reference}
-        for name, by_variant in datasets.items() if reference in by_variant
-    }
+def paired_report(datasets, reference="lora", flag="param_exact"):
+    """McNemar comparisons of the reference variant against each other variant, per dataset.
+
+    The reference is LoRA when it is present, otherwise the last variant evaluated — so a
+    baselines-only or constrained-only run still gets a paired test (`base` vs `grammar`,
+    for example) instead of an empty table. `flag` selects the paired metric: exact match by
+    default, or `is_schema_valid` for "did decoding fix the format?" questions.
+    """
+    reports = {}
+    for name, by_variant in datasets.items():
+        chosen = reference if reference in by_variant else (list(by_variant)[-1] if by_variant else None)
+        if chosen is None or len(by_variant) < 2:
+            continue
+        reports[name] = {
+            "reference": chosen,
+            "comparisons": {
+                other: paired_comparison(by_variant[chosen]["sample_results"],
+                                         by_variant[other]["sample_results"], flag)
+                for other in by_variant if other != chosen
+            },
+        }
+    return reports
 
 
-def print_report(datasets, paired=None, focus="lora"):
+def print_report(datasets, paired=None, focus="lora", schema_paired=None):
     test = datasets["test"]
     variants = list(test)
     table = Table(title="Holdout scorecard: rate [95% interval]")
@@ -204,13 +250,32 @@ def print_report(datasets, paired=None, focus="lora"):
         console.print(challenge)
 
     if paired and paired.get("test"):
-        table = Table(title="Paired exact-match comparison on the holdout (same samples)")
-        for column in ("LoRA vs", "only LoRA right", "only other right", "both right", "McNemar p"):
+        reference = paired["test"]["reference"]
+        table = Table(title=f"Paired exact-match comparison on the holdout (same samples): "
+                            f"{LABELS.get(reference, reference)} vs each other variant")
+        for column in (f"{LABELS.get(reference, reference)} vs", "only reference right", "only other right",
+                       "both right", "McNemar p"):
             table.add_column(column, justify="right")
-        for other, c in paired["test"].items():
-            table.add_row(LABELS.get(other, other), str(c["only_a"]), str(c["only_b"]), str(c["both_correct"]), f"{c['p_value']:.3g}")
+        for other, c in paired["test"]["comparisons"].items():
+            table.add_row(LABELS.get(other, other), str(c["only_a"]), str(c["only_b"]), str(c["both_correct"]),
+                          f"{c['p_value']:.3g}")
         console.print(table)
         console.print("[dim]p < 0.05: the difference is unlikely to be sampling noise on this set.[/dim]")
+
+    if schema_paired and schema_paired.get("test"):
+        reference = schema_paired["test"]["reference"]
+        rows = [(other, c) for other, c in schema_paired["test"]["comparisons"].items()
+                if c["only_a"] or c["only_b"]]
+        if rows:
+            table = Table(title=f"Paired schema-validity comparison (won/lost structural validity): "
+                                f"{LABELS.get(reference, reference)} vs each other variant")
+            for column in (f"{LABELS.get(reference, reference)} vs", "only reference valid", "only other valid",
+                           "both valid", "McNemar p"):
+                table.add_column(column, justify="right")
+            for other, c in rows:
+                table.add_row(LABELS.get(other, other), str(c["only_a"]), str(c["only_b"]), str(c["both_correct"]),
+                              f"{c['p_value']:.3g}")
+            console.print(table)
 
     focus = focus if focus in test else variants[-1]
     examples = failure_examples(test[focus]["sample_results"])
@@ -227,12 +292,24 @@ def print_report(datasets, paired=None, focus="lora"):
 def run_comprehensive_evaluation(
     model_name=None, adapter_path=None, test_jsonl=None, num_eval_samples=None,
     *, preset=None, output_dir=None, fused_path=None, max_tokens=150,
-    variants=DEFAULT_VARIANTS, shots=5, challenge=False, quiet=False,
+    variants=DEFAULT_VARIANTS, shots=5, challenge=False, quiet=False, constrained=False,
+    temperature=0.0, seed=42,
 ):
-    """Evaluate the chosen variants on the test split (and challenge sets) in a new run directory."""
+    """Evaluate the chosen variants on the test split (and challenge sets) in a new run directory.
+
+    `constrained=True` adds a `grammar` variant: the same base model, decoded under the
+    schema grammar from `src/constrained.py`, so the report separates formatting failures
+    from task failures ("would valid JSON have been enough?"). `temperature > 0` samples
+    instead of decoding greedily, which turns each variant into one stochastic draw: the
+    metrics and the paired test still apply, but the numbers are no longer the model's
+    single most likely output. The seed is recorded and re-applied per variant, so a
+    sampled run is reproducible.
+    """
     if num_eval_samples is not None:
         positive_int(num_eval_samples)
     positive_int(max_tokens)
+    if not 0.0 <= temperature <= 2.0:
+        raise ValueError("temperature must be between 0.0 and 2.0")
     variants = tuple(variants)
     unknown = set(variants) - set(DEFAULT_VARIANTS)
     if unknown or not variants:
@@ -256,37 +333,47 @@ def run_comprehensive_evaluation(
         root, "evaluation", model=model_name, model_source=source_identity, adapter=adapter_files,
         datasets={name: file_identity(path) for name, path in paths.items()},
         sample_ids={name: [s["id"] for s in group] for name, group in samples.items()},
-        fewshot_ids=[s["id"] for s in demos],
-        generation={"temperature": 0.0, "max_tokens": max_tokens},
+        fewshot_ids=[s["id"] for s in demos], constrained=constrained,
+        generation={"temperature": temperature, "max_tokens": max_tokens, "seed": seed},
     )
     with record_failure(run_dir, manifest):
-        plan = [(name, model_source, adapter_path if name == "lora" else None) for name in variants]
+        # plan entries: (variant name, model source, adapter, use grammar-constrained decoding)
+        plan = [(name, model_source, adapter_path if name == "lora" else None, False) for name in variants]
+        if constrained:
+            plan.append(("grammar", model_source, None, True))
         if fused_path:
             fused_source, fused_identity = resolve_source(latest_path(fused_path))
             manifest["fused_model"] = fused_identity
-            plan.append(("fused", fused_source, None))
+            plan.append(("fused", fused_source, None, False))
         datasets = {name: {} for name in samples}
-        for variant, source, adapter in plan:
+        for variant, source, adapter, use_grammar in plan:
             console.print(f"[bold]Evaluating {LABELS.get(variant, variant)}[/bold]")
             model, tokenizer = mlx_lm.load(source, **({"adapter_path": adapter} if adapter else {}))
             try:
+                if temperature > 0:
+                    mx.random.seed(seed)  # same sampling draw for every variant
                 for name, group in samples.items():
                     if variant == "fewshot":
                         group = [{**s, "messages": fewshot_messages(s["messages"], demos)} for s in group]
                     intrinsic = compute_perplexity(model, tokenizer, group)
-                    metrics = run_deterministic_eval(model, tokenizer, group, max_tokens, desc=f"{variant}/{name}")
+                    generate = constrained_generate if use_grammar else None
+                    metrics = run_deterministic_eval(model, tokenizer, group, max_tokens,
+                                                     desc=f"{variant}/{name}", generate=generate,
+                                                     temperature=temperature)
                     datasets[name][variant] = {**metrics, **intrinsic}
             finally:
                 del model
                 mx.clear_cache()
         report = {"model": model_name, "adapter": adapter_path, "run_dir": str(run_dir), "run_id": manifest["run_id"],
-                  "variants": [name for name, _, _ in plan], "datasets": datasets,
-                  "paired": paired_report(datasets)}
+                  "variants": [name for name, _, _, _ in plan], "constrained": constrained,
+                  "temperature": temperature, "seed": seed, "datasets": datasets,
+                  "paired": paired_report(datasets),
+                  "paired_schema": paired_report(datasets, flag="is_schema_valid")}
         plot_eval_metrics(datasets["test"], run_dir / "eval_comparison.png")
         if challenge and len(datasets) > 1:
             plot_challenges(datasets, run_dir / "challenge_comparison.png")
         if not quiet:
-            print_report(datasets, report["paired"])
+            print_report(datasets, report["paired"], schema_paired=report["paired_schema"])
         report["manifest"] = {**manifest, "status": "complete"}
         write_json(run_dir / "eval_results.json", report)
         finish_run(root, run_dir, manifest)

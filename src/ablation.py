@@ -8,20 +8,21 @@ is a full training run, so start with a few values and a short schedule.
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from rich.console import Console
 from rich.table import Table
 
 from src.evaluate import run_comprehensive_evaluation
-from src.metrics import format_rate
-from src.models import PRESETS, DEFAULT_PRESET
+from src.metrics import format_rate, sweep_summary
+from src.models import DEFAULT_PRESET, PRESETS
 from src.runs import finish_run, new_run, record_failure, write_json
 from src.train import run_training
 
 console = Console()
 ABLATABLE = {"rank": int, "scale": float, "dropout": float, "learning_rate": float,
-             "iters": int, "num_layers": int, "batch_size": int}
+             "iters": int, "num_layers": int, "batch_size": int, "seed": int}
 
 
 def plot_ablation(param, rows, output_path):
@@ -83,6 +84,7 @@ def run_ablation(param, values, *, preset=None, iters=None, samples=None, output
                 "training_run": str(training.run_dir), "evaluation_run": report["run_dir"],
             })
         plot_ablation(param, rows, directory / "ablation.png")
+        spread = sweep_summary([r["exact_match_rate"] for r in rows])
         table = Table(title=f"Ablation over {param}")
         for column in (param, "exact match [95%]", "test loss", "best val loss", "LoRA params"):
             table.add_column(column, justify="right")
@@ -90,8 +92,15 @@ def run_ablation(param, values, *, preset=None, iters=None, samples=None, output
             table.add_row(str(r["value"]), format_rate(r["exact_match_rate"], r["ci95"]), f"{r['test_loss']:.4f}",
                           f"{r['best_val_loss']:.4f}", f"{r['adapter_parameters']:,}")
         console.print(table)
+        console.print(f"Across the sweep: [bold]{100 * spread['mean']:.1f}%[/bold] exact match "
+                      f"± {100 * spread['stdev']:.1f} (n={spread['n']}, "
+                      f"min {100 * spread['min']:.0f}%, max {100 * spread['max']:.0f}%)")
+        if param == "seed":
+            console.print("[dim]Quote this as mean ± spread over seeds, not as a single number.[/dim]")
         manifest["results"] = rows
-        write_json(directory / "ablation.json", {"param": param, "rows": rows, "run_dir": str(directory)})
+        manifest["spread"] = spread
+        write_json(directory / "ablation.json", {"param": param, "rows": rows, "spread": spread,
+                                                 "run_dir": str(directory)})
         finish_run(root, directory, manifest)
     console.print(f"Ablation plot: {directory / 'ablation.png'}")
-    return {"param": param, "rows": rows, "run_dir": str(directory)}
+    return {"param": param, "rows": rows, "spread": spread, "run_dir": str(directory)}
