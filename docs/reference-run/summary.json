@@ -270,71 +270,220 @@
     "variants": [
       "base",
       "fewshot",
-      "lora"
+      "lora",
+      "grammar"
     ],
+    "constrained": true,
+    "temperature": 0.0,
     "paired": {
       "test": {
-        "base": {
-          "both_correct": 0,
-          "only_a": 75,
-          "only_b": 0,
-          "neither": 0,
-          "p_value": 5.293955920339377e-23
-        },
-        "fewshot": {
-          "both_correct": 51,
-          "only_a": 24,
-          "only_b": 0,
-          "neither": 0,
-          "p_value": 1.1920928955078125e-07
+        "reference": "lora",
+        "comparisons": {
+          "base": {
+            "both_correct": 0,
+            "only_a": 75,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 5.293955920339377e-23
+          },
+          "fewshot": {
+            "both_correct": 51,
+            "only_a": 24,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.1920928955078125e-07
+          },
+          "grammar": {
+            "both_correct": 32,
+            "only_a": 43,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 2.2737367544323206e-13
+          }
         }
       },
       "challenge_abstain": {
-        "base": {
-          "both_correct": 0,
-          "only_a": 38,
-          "only_b": 0,
-          "neither": 2,
-          "p_value": 7.275957614183426e-12
-        },
-        "fewshot": {
-          "both_correct": 38,
-          "only_a": 0,
-          "only_b": 2,
-          "neither": 0,
-          "p_value": 0.5
+        "reference": "lora",
+        "comparisons": {
+          "base": {
+            "both_correct": 0,
+            "only_a": 38,
+            "only_b": 0,
+            "neither": 2,
+            "p_value": 7.275957614183426e-12
+          },
+          "fewshot": {
+            "both_correct": 38,
+            "only_a": 0,
+            "only_b": 2,
+            "neither": 0,
+            "p_value": 0.5
+          },
+          "grammar": {
+            "both_correct": 38,
+            "only_a": 0,
+            "only_b": 2,
+            "neither": 0,
+            "p_value": 0.5
+          }
         }
       },
       "challenge_defaults": {
-        "base": {
-          "both_correct": 0,
-          "only_a": 40,
-          "only_b": 0,
-          "neither": 0,
-          "p_value": 1.8189894035458565e-12
-        },
-        "fewshot": {
-          "both_correct": 23,
-          "only_a": 17,
-          "only_b": 0,
-          "neither": 0,
-          "p_value": 1.52587890625e-05
+        "reference": "lora",
+        "comparisons": {
+          "base": {
+            "both_correct": 0,
+            "only_a": 40,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.8189894035458565e-12
+          },
+          "fewshot": {
+            "both_correct": 23,
+            "only_a": 17,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.52587890625e-05
+          },
+          "grammar": {
+            "both_correct": 17,
+            "only_a": 23,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 2.384185791015625e-07
+          }
         }
       },
       "challenge_entities": {
-        "base": {
-          "both_correct": 0,
-          "only_a": 30,
-          "only_b": 0,
-          "neither": 10,
-          "p_value": 1.862645149230957e-09
-        },
-        "fewshot": {
-          "both_correct": 16,
-          "only_a": 14,
-          "only_b": 8,
-          "neither": 2,
-          "p_value": 0.28627872467041016
+        "reference": "lora",
+        "comparisons": {
+          "base": {
+            "both_correct": 0,
+            "only_a": 30,
+            "only_b": 0,
+            "neither": 10,
+            "p_value": 1.862645149230957e-09
+          },
+          "fewshot": {
+            "both_correct": 16,
+            "only_a": 14,
+            "only_b": 8,
+            "neither": 2,
+            "p_value": 0.28627872467041016
+          },
+          "grammar": {
+            "both_correct": 10,
+            "only_a": 20,
+            "only_b": 6,
+            "neither": 4,
+            "p_value": 0.009355306625366211
+          }
+        }
+      }
+    },
+    "paired_schema": {
+      "test": {
+        "reference": "lora",
+        "comparisons": {
+          "base": {
+            "both_correct": 0,
+            "only_a": 75,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 5.293955920339377e-23
+          },
+          "fewshot": {
+            "both_correct": 64,
+            "only_a": 11,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 0.0009765625
+          },
+          "grammar": {
+            "both_correct": 75,
+            "only_a": 0,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.0
+          }
+        }
+      },
+      "challenge_abstain": {
+        "reference": "lora",
+        "comparisons": {
+          "base": {
+            "both_correct": 0,
+            "only_a": 40,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.8189894035458565e-12
+          },
+          "fewshot": {
+            "both_correct": 40,
+            "only_a": 0,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.0
+          },
+          "grammar": {
+            "both_correct": 40,
+            "only_a": 0,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.0
+          }
+        }
+      },
+      "challenge_defaults": {
+        "reference": "lora",
+        "comparisons": {
+          "base": {
+            "both_correct": 0,
+            "only_a": 40,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.8189894035458565e-12
+          },
+          "fewshot": {
+            "both_correct": 35,
+            "only_a": 5,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 0.0625
+          },
+          "grammar": {
+            "both_correct": 40,
+            "only_a": 0,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.0
+          }
+        }
+      },
+      "challenge_entities": {
+        "reference": "lora",
+        "comparisons": {
+          "base": {
+            "both_correct": 0,
+            "only_a": 40,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.8189894035458565e-12
+          },
+          "fewshot": {
+            "both_correct": 33,
+            "only_a": 7,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 0.015625
+          },
+          "grammar": {
+            "both_correct": 39,
+            "only_a": 1,
+            "only_b": 0,
+            "neither": 0,
+            "p_value": 1.0
+          }
         }
       }
     },
@@ -765,6 +914,148 @@
           "perplexity": 1.0011240569874216,
           "loss_scope": "assistant_tokens",
           "loss_tokens": 2618
+        },
+        "grammar": {
+          "num_samples": 75,
+          "intervals": {
+            "pure_json_rate": [
+              0.9512744540953,
+              1.0
+            ],
+            "valid_json_rate": [
+              0.9512744540953,
+              1.0
+            ],
+            "schema_valid_rate": [
+              0.9512744540953,
+              1.0
+            ],
+            "tool_accuracy": [
+              0.8033843735268642,
+              0.9449515303614384
+            ],
+            "exact_match_rate": [
+              0.32100563365956936,
+              0.53947411307312
+            ],
+            "normalized_match_rate": [
+              0.46052588692688007,
+              0.6789943663404308
+            ]
+          },
+          "pure_json_rate": 1.0,
+          "valid_json_rate": 1.0,
+          "schema_valid_rate": 1.0,
+          "tool_accuracy": 0.8933333333333333,
+          "exact_match_rate": 0.4266666666666667,
+          "normalized_match_rate": 0.5733333333333334,
+          "per_tool": {
+            "deploy_service": {
+              "n": 15,
+              "exact_match_rate": 0.13333333333333333,
+              "ci95": [
+                0.0373604698913593,
+                0.3788249920651624
+              ],
+              "tool_accuracy": 1.0
+            },
+            "no_action": {
+              "n": 15,
+              "exact_match_rate": 0.4666666666666667,
+              "ci95": [
+                0.24809225259746442,
+                0.6988336984894921
+              ],
+              "tool_accuracy": 0.4666666666666667
+            },
+            "restart_pod": {
+              "n": 15,
+              "exact_match_rate": 0.2,
+              "ci95": [
+                0.07047420643610414,
+                0.4518593533465045
+              ],
+              "tool_accuracy": 1.0
+            },
+            "rollback_deployment": {
+              "n": 15,
+              "exact_match_rate": 0.9333333333333333,
+              "ci95": [
+                0.7018292244757601,
+                0.9881334113938051
+              ],
+              "tool_accuracy": 1.0
+            },
+            "scale_cluster": {
+              "n": 15,
+              "exact_match_rate": 0.4,
+              "ci95": [
+                0.19824228082594664,
+                0.642535572434923
+              ],
+              "tool_accuracy": 1.0
+            }
+          },
+          "per_field": {
+            "deploy_service": {
+              "service": 0.7333333333333333,
+              "version": 0.9333333333333333,
+              "environment": 0.8,
+              "replicas": 0.7333333333333333,
+              "notify_channels": 0.4
+            },
+            "no_action": {
+              "reason": 0.4666666666666667
+            },
+            "restart_pod": {
+              "pod_name": 0.7333333333333333,
+              "region": 1.0,
+              "force": 0.9333333333333333,
+              "reason": 0.4
+            },
+            "rollback_deployment": {
+              "deployment_id": 1.0,
+              "target_tag": 1.0,
+              "drain_traffic": 0.9333333333333333
+            },
+            "scale_cluster": {
+              "cluster_name": 1.0,
+              "node_count": 1.0,
+              "auto_scale": 0.8,
+              "instance_type": 0.6
+            }
+          },
+          "error_categories": {
+            "json": 0,
+            "schema": 0,
+            "format": 0,
+            "tool": 8,
+            "omitted_default": 11,
+            "parameters": 24
+          },
+          "slices": {
+            "omitted_optional": {
+              "n": 24,
+              "exact_match_rate": 0.2916666666666667,
+              "ci95": [
+                0.14914460334164278,
+                0.49168063658709704
+              ]
+            },
+            "all_explicit": {
+              "n": 51,
+              "exact_match_rate": 0.49019607843137253,
+              "ci95": [
+                0.35857262142306195,
+                0.623193045515904
+              ]
+            }
+          },
+          "avg_output_tokens": 50.29333333333334,
+          "loss": 1.0553676377187893,
+          "perplexity": 2.8730311944036124,
+          "loss_scope": "assistant_tokens",
+          "loss_tokens": 2618
         }
       },
       "challenge_abstain": {
@@ -987,6 +1278,80 @@
           "avg_output_tokens": 14.05,
           "loss": 0.008219542389269918,
           "perplexity": 1.0082534155715628,
+          "loss_scope": "assistant_tokens",
+          "loss_tokens": 600
+        },
+        "grammar": {
+          "num_samples": 40,
+          "intervals": {
+            "pure_json_rate": [
+              0.9123754607496077,
+              1.0
+            ],
+            "valid_json_rate": [
+              0.9123754607496077,
+              1.0
+            ],
+            "schema_valid_rate": [
+              0.9123754607496077,
+              1.0
+            ],
+            "tool_accuracy": [
+              0.9123754607496077,
+              1.0
+            ],
+            "exact_match_rate": [
+              0.9123754607496077,
+              1.0
+            ],
+            "normalized_match_rate": [
+              0.9123754607496077,
+              1.0
+            ]
+          },
+          "pure_json_rate": 1.0,
+          "valid_json_rate": 1.0,
+          "schema_valid_rate": 1.0,
+          "tool_accuracy": 1.0,
+          "exact_match_rate": 1.0,
+          "normalized_match_rate": 1.0,
+          "per_tool": {
+            "no_action": {
+              "n": 40,
+              "exact_match_rate": 1.0,
+              "ci95": [
+                0.9123754607496077,
+                1.0
+              ],
+              "tool_accuracy": 1.0
+            }
+          },
+          "per_field": {
+            "no_action": {
+              "reason": 1.0
+            }
+          },
+          "error_categories": {
+            "json": 0,
+            "schema": 0,
+            "format": 0,
+            "tool": 0,
+            "omitted_default": 0,
+            "parameters": 0
+          },
+          "slices": {
+            "all_explicit": {
+              "n": 40,
+              "exact_match_rate": 1.0,
+              "ci95": [
+                0.9123754607496077,
+                1.0
+              ]
+            }
+          },
+          "avg_output_tokens": 20.025,
+          "loss": 2.088842526078224,
+          "perplexity": 8.075562499619526,
           "loss_scope": "assistant_tokens",
           "loss_tokens": 600
         }
@@ -1355,6 +1720,128 @@
           "avg_output_tokens": 38.125,
           "loss": 0.0024785156223306303,
           "perplexity": 1.0024815896813521,
+          "loss_scope": "assistant_tokens",
+          "loss_tokens": 1565
+        },
+        "grammar": {
+          "num_samples": 40,
+          "intervals": {
+            "pure_json_rate": [
+              0.9123754607496077,
+              1.0
+            ],
+            "valid_json_rate": [
+              0.9123754607496077,
+              1.0
+            ],
+            "schema_valid_rate": [
+              0.9123754607496077,
+              1.0
+            ],
+            "tool_accuracy": [
+              0.9123754607496077,
+              1.0
+            ],
+            "exact_match_rate": [
+              0.28509168524815875,
+              0.5780519956394001
+            ],
+            "normalized_match_rate": [
+              0.42194800436059987,
+              0.7149083147518411
+            ]
+          },
+          "pure_json_rate": 1.0,
+          "valid_json_rate": 1.0,
+          "schema_valid_rate": 1.0,
+          "tool_accuracy": 1.0,
+          "exact_match_rate": 0.425,
+          "normalized_match_rate": 0.575,
+          "per_tool": {
+            "deploy_service": {
+              "n": 10,
+              "exact_match_rate": 0.0,
+              "ci95": [
+                0.0,
+                0.2775401687666166
+              ],
+              "tool_accuracy": 1.0
+            },
+            "restart_pod": {
+              "n": 10,
+              "exact_match_rate": 0.1,
+              "ci95": [
+                0.01787574951572113,
+                0.4041563854975721
+              ],
+              "tool_accuracy": 1.0
+            },
+            "rollback_deployment": {
+              "n": 10,
+              "exact_match_rate": 1.0,
+              "ci95": [
+                0.7224598312333834,
+                1.0
+              ],
+              "tool_accuracy": 1.0
+            },
+            "scale_cluster": {
+              "n": 10,
+              "exact_match_rate": 0.6,
+              "ci95": [
+                0.3126695474501864,
+                0.8318224187964902
+              ],
+              "tool_accuracy": 1.0
+            }
+          },
+          "per_field": {
+            "deploy_service": {
+              "service": 0.6,
+              "version": 0.8,
+              "environment": 0.9,
+              "replicas": 0.6,
+              "notify_channels": 0.0
+            },
+            "restart_pod": {
+              "pod_name": 0.9,
+              "region": 1.0,
+              "force": 0.1,
+              "reason": 1.0
+            },
+            "rollback_deployment": {
+              "deployment_id": 1.0,
+              "target_tag": 1.0,
+              "drain_traffic": 1.0
+            },
+            "scale_cluster": {
+              "cluster_name": 1.0,
+              "node_count": 1.0,
+              "auto_scale": 1.0,
+              "instance_type": 0.6
+            }
+          },
+          "error_categories": {
+            "json": 0,
+            "schema": 0,
+            "format": 0,
+            "tool": 0,
+            "omitted_default": 6,
+            "parameters": 17
+          },
+          "slices": {
+            "omitted_optional": {
+              "n": 40,
+              "exact_match_rate": 0.425,
+              "ci95": [
+                0.28509168524815875,
+                0.5780519956394001
+              ]
+            }
+          },
+          "avg_output_tokens": 53.15,
+          "loss": 0.9696348756266098,
+          "perplexity": 2.636981457354842,
           "loss_scope": "assistant_tokens",
           "loss_tokens": 1565
         }
@@ -1749,6 +2236,136 @@
           "perplexity": 1.0581465450454437,
           "loss_scope": "assistant_tokens",
           "loss_tokens": 1600
+        },
+        "grammar": {
+          "num_samples": 40,
+          "intervals": {
+            "pure_json_rate": [
+              0.8711834051199223,
+              0.9955732825922052
+            ],
+            "valid_json_rate": [
+              0.8711834051199223,
+              0.9955732825922052
+            ],
+            "schema_valid_rate": [
+              0.8711834051199223,
+              0.9955732825922052
+            ],
+            "tool_accuracy": [
+              0.8711834051199223,
+              0.9955732825922052
+            ],
+            "exact_match_rate": [
+              0.2634811061240136,
+              0.5540438017260649
+            ],
+            "normalized_match_rate": [
+              0.47032160054531913,
+              0.7577722646420829
+            ]
+          },
+          "pure_json_rate": 0.975,
+          "valid_json_rate": 0.975,
+          "schema_valid_rate": 0.975,
+          "tool_accuracy": 0.975,
+          "exact_match_rate": 0.4,
+          "normalized_match_rate": 0.625,
+          "per_tool": {
+            "deploy_service": {
+              "n": 10,
+              "exact_match_rate": 0.1,
+              "ci95": [
+                0.01787574951572113,
+                0.4041563854975721
+              ],
+              "tool_accuracy": 0.9
+            },
+            "restart_pod": {
+              "n": 10,
+              "exact_match_rate": 0.7,
+              "ci95": [
+                0.39677321997956516,
+                0.892210712513788
+              ],
+              "tool_accuracy": 1.0
+            },
+            "rollback_deployment": {
+              "n": 10,
+              "exact_match_rate": 0.6,
+              "ci95": [
+                0.3126695474501864,
+                0.8318224187964902
+              ],
+              "tool_accuracy": 1.0
+            },
+            "scale_cluster": {
+              "n": 10,
+              "exact_match_rate": 0.2,
+              "ci95": [
+                0.056680947980693314,
+                0.5098431532792765
+              ],
+              "tool_accuracy": 1.0
+            }
+          },
+          "per_field": {
+            "deploy_service": {
+              "service": 0.5,
+              "version": 0.9,
+              "environment": 0.8,
+              "replicas": 0.9,
+              "notify_channels": 0.3
+            },
+            "restart_pod": {
+              "pod_name": 1.0,
+              "region": 1.0,
+              "force": 0.9,
+              "reason": 0.8
+            },
+            "rollback_deployment": {
+              "deployment_id": 0.9,
+              "target_tag": 1.0,
+              "drain_traffic": 0.7
+            },
+            "scale_cluster": {
+              "cluster_name": 1.0,
+              "node_count": 1.0,
+              "auto_scale": 0.7,
+              "instance_type": 0.5
+            }
+          },
+          "error_categories": {
+            "json": 1,
+            "schema": 0,
+            "format": 0,
+            "tool": 0,
+            "omitted_default": 9,
+            "parameters": 14
+          },
+          "slices": {
+            "omitted_optional": {
+              "n": 19,
+              "exact_match_rate": 0.15789473684210525,
+              "ci95": [
+                0.055203710399278266,
+                0.3756592764317668
+              ]
+            },
+            "all_explicit": {
+              "n": 21,
+              "exact_match_rate": 0.6190476190476191,
+              "ci95": [
+                0.40878295815501514,
+                0.7924923220201749
+              ]
+            }
+          },
+          "avg_output_tokens": 56.9,
+          "loss": 0.883127311617136,
+          "perplexity": 2.418451142769685,
+          "loss_scope": "assistant_tokens",
+          "loss_tokens": 1600
         }
       }
     },
@@ -1862,7 +2479,64 @@
             "error": null
           }
         ],
-        "lora": []
+        "lora": [],
+        "grammar": [
+          {
+            "id": "test.jsonl:2",
+            "category": "tool",
+            "prompt": "Trigger a deployment of billing-worker in staging.",
+            "expected": {
+              "tool": "no_action",
+              "parameters": {
+                "reason": "missing_required_parameter"
+              }
+            },
+            "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"billing-worker\",\"version\":\"\",\"environment\":\"staging\",\"replicas\":2,\"notify_channels\":[\"#staging-deployments_gameplay-billing-worker_12345678901\"]}}",
+            "wrong_fields": [
+              "reason"
+            ],
+            "error": null
+          },
+          {
+            "id": "test.jsonl:17",
+            "category": "omitted_default",
+            "prompt": "We need more compute in k8s-prod-cluster-east. Scale to 20 nodes.",
+            "expected": {
+              "tool": "scale_cluster",
+              "parameters": {
+                "cluster_name": "k8s-prod-cluster-east",
+                "node_count": 20,
+                "auto_scale": true,
+                "instance_type": "m6i.xlarge"
+              }
+            },
+            "raw_output": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-prod-cluster-east\",\"node_count\":20,\"auto_scale\":true}}",
+            "wrong_fields": [
+              "instance_type"
+            ],
+            "error": null
+          },
+          {
+            "id": "test.jsonl:1",
+            "category": "parameters",
+            "prompt": "Restart pod ingress-controller-4a11 (ap-southeast-1) due to max socket limit.",
+            "expected": {
+              "tool": "restart_pod",
+              "parameters": {
+                "pod_name": "ingress-controller-4a11",
+                "region": "ap-southeast-1",
+                "force": false,
+                "reason": "max socket limit"
+              }
+            },
+            "raw_output": "{\"tool\":\"restart_pod\",\"parameters\":{\"pod_name\":\"ingress-controller-4a11\",\"region\":\"ap-southeast-1\",\"force\":true,\"reason\":\"max socket limit problem\"}}",
+            "wrong_fields": [
+              "force",
+              "reason"
+            ],
+            "error": null
+          }
+        ]
       },
       "challenge_abstain": {
         "base": [
@@ -1949,7 +2623,8 @@
             ],
             "error": null
           }
-        ]
+        ],
+        "grammar": []
       },
       "challenge_defaults": {
         "base": [
@@ -2082,7 +2757,70 @@
             "error": "1 validation error for ToolCall\ndeploy_service.parameters.environment\n  Input should be 'production', 'staging' or 'development' [type=literal_error, input_value='stage', input_type=str]\n    For further information visit https://errors.pydantic.dev/2.13/v/literal_error"
           }
         ],
-        "lora": []
+        "lora": [],
+        "grammar": [
+          {
+            "id": "challenge_defaults.jsonl:2",
+            "category": "omitted_default",
+            "prompt": "We need more compute in k8s-prod-cluster-east. Scale to 50 nodes.",
+            "expected": {
+              "tool": "scale_cluster",
+              "parameters": {
+                "cluster_name": "k8s-prod-cluster-east",
+                "node_count": 50,
+                "auto_scale": true,
+                "instance_type": "m6i.xlarge"
+              }
+            },
+            "raw_output": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-prod-cluster-east\",\"node_count\":50,\"auto_scale\":true}}",
+            "wrong_fields": [
+              "instance_type"
+            ],
+            "error": null
+          },
+          {
+            "id": "challenge_defaults.jsonl:4",
+            "category": "parameters",
+            "prompt": "Trigger a deployment of user-mgmt (v1.10.5) in sandbox.",
+            "expected": {
+              "tool": "deploy_service",
+              "parameters": {
+                "service": "user-mgmt",
+                "version": "v1.10.5",
+                "environment": "development",
+                "replicas": 2,
+                "notify_channels": []
+              }
+            },
+            "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"user-mgmt-v1.10.5-v1.10.5-100-1\",\"version\":\"v1.10.5\",\"environment\":\"staging\",\"replicas\":100,\"notify_channels\":[\"#staging_deployments_channel_1234567890123456\"]}}",
+            "wrong_fields": [
+              "service",
+              "environment",
+              "replicas",
+              "notify_channels"
+            ],
+            "error": null
+          },
+          {
+            "id": "challenge_defaults.jsonl:3",
+            "category": "omitted_default",
+            "prompt": "We need more compute in k8s-compute-cluster-east. Scale to 120 nodes.",
+            "expected": {
+              "tool": "scale_cluster",
+              "parameters": {
+                "cluster_name": "k8s-compute-cluster-east",
+                "node_count": 120,
+                "auto_scale": true,
+                "instance_type": "m6i.xlarge"
+              }
+            },
+            "raw_output": "{\"tool\":\"scale_cluster\",\"parameters\":{\"cluster_name\":\"k8s-compute-cluster-east\",\"node_count\":120,\"auto_scale\":true}}",
+            "wrong_fields": [
+              "instance_type"
+            ],
+            "error": null
+          }
+        ]
       },
       "challenge_entities": {
         "base": [
@@ -2273,13 +3011,83 @@
             ],
             "error": null
           }
+        ],
+        "grammar": [
+          {
+            "id": "challenge_entities.jsonl:40",
+            "category": "json",
+            "prompt": "Please deploy geo-router version v5.10.4 to sandbox with 3 replicas. Notify #sre-oncall, #incident-room.",
+            "expected": {
+              "tool": "deploy_service",
+              "parameters": {
+                "service": "geo-router",
+                "version": "v5.10.4",
+                "environment": "development",
+                "replicas": 3,
+                "notify_channels": [
+                  "#sre-oncall",
+                  "#incident-room"
+                ]
+              }
+            },
+            "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"geo-router\",\"version\":\"v5.10.4\",\"environment\":\"staging\",\"replicas\":3,\"notify_channels\":[\"#sre-oncall\",\"#incident-room]}}<tool_call> CanterigoUserFeedbackinator-1234567890ABC\",\"${1234567890ABC}1234567890ABC\",\">${1234567890ABC}1234567890ABC\",\">${1234567890ABC}1234",
+            "wrong_fields": [
+              "service",
+              "version",
+              "environment",
+              "replicas",
+              "notify_channels"
+            ],
+            "error": "No JSON object found"
+          },
+          {
+            "id": "challenge_entities.jsonl:3",
+            "category": "omitted_default",
+            "prompt": "Revert media-transcoder-r8646 back to v7.12.9.",
+            "expected": {
+              "tool": "rollback_deployment",
+              "parameters": {
+                "deployment_id": "media-transcoder-r8646",
+                "target_tag": "v7.12.9",
+                "drain_traffic": true
+              }
+            },
+            "raw_output": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"media-transcoder-r8646\",\"target_tag\":\"v7.12.9\"}}",
+            "wrong_fields": [
+              "drain_traffic"
+            ],
+            "error": null
+          },
+          {
+            "id": "challenge_entities.jsonl:1",
+            "category": "parameters",
+            "prompt": "Please deploy media-transcoder version v6.9.7 to pre-prod with 8 replicas. Notify #platform-updates.",
+            "expected": {
+              "tool": "deploy_service",
+              "parameters": {
+                "service": "media-transcoder",
+                "version": "v6.9.7",
+                "environment": "staging",
+                "replicas": 8,
+                "notify_channels": [
+                  "#platform-updates"
+                ]
+              }
+            },
+            "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"media-transcoder\",\"version\":\"v6.9.7\",\"environment\":\"production\",\"replicas\":8,\"notify_channels\":[\"#platform-updates\"]}}",
+            "wrong_fields": [
+              "environment"
+            ],
+            "error": null
+          }
         ]
       }
     },
     "prompt_tokens": {
       "base": 666,
       "fewshot": 985,
-      "lora": 666
+      "lora": 666,
+      "grammar": 666
     }
   },
   "benchmark": {
@@ -2372,11 +3180,25 @@
     ],
     "run_dir": "/Users/markcastillo/git/mlx-model-training-evals/artifacts/qwen2.5-3b/runs/ablation-20261007T022421911200Z-04b63435"
   },
+  "forgetting": {
+    "n": 24,
+    "base_loss": 1.8234692506181698,
+    "lora_loss": 1.2148557433392853,
+    "delta": -0.6086135072788845,
+    "sign_test": {
+      "increased": 7,
+      "decreased": 17,
+      "unchanged": 0,
+      "p_value": 0.06391465663909912
+    },
+    "verdict": "No detectable damage to general ability on this set: mean loss 1.215 vs 1.823 (7 records worse, 17 better, sign-test p = 0.06). This is a 24-record synthetic set scored by loss, not a benchmark: it can show that general ability was not obviously destroyed, never that it was preserved."
+  },
   "provenance": {
     "training": "20261007T013812411802Z-7ad75c0f",
-    "evaluation": "20261007T015731481031Z-b39082e6",
+    "evaluation": "20261007T222811819354Z-c00ba12d",
     "benchmark": "20261007T021555880386Z-5fbae5c5",
     "ablation": "20261007T022421911200Z-04b63435",
+    "forgetting": "20261007T224921064996Z-2175ae2a",
     "versions": {
       "mlx": "0.32.3",
       "mlx-lm": "0.32.0",

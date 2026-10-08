@@ -1,0 +1,57 @@
+{
+  "param": "seed",
+  "rows": [
+    {
+      "exact_match_rate": 1.0,
+      "schema_valid_rate": 1.0,
+      "test_loss": 0.001123425708384206,
+      "best_val_loss": 0.002331884577870369,
+      "adapter_parameters": 6651904,
+      "value": 42,
+      "ci95": [
+        0.9512744540953,
+        1.0
+      ],
+      "training_run": "/Users/markcastillo/git/mlx-model-training-evals/artifacts/qwen2.5-3b/runs/ablation-20261007T230256125143Z-a553baaa/seed-42/runs/training-20261007T230256386895Z-0a3c971e",
+      "evaluation_run": "/Users/markcastillo/git/mlx-model-training-evals/artifacts/qwen2.5-3b/runs/ablation-20261007T230256125143Z-a553baaa/seed-42/runs/evaluation-20261007T232216400720Z-79cd5587",
+      "sweep_run": "ablation-20261007T230256125143Z-a553baaa"
+    },
+    {
+      "exact_match_rate": 0.9733333333333334,
+      "schema_valid_rate": 1.0,
+      "test_loss": 0.001040998262257937,
+      "best_val_loss": 0.00013052586291451007,
+      "adapter_parameters": 6651904,
+      "value": 43,
+      "ci95": [
+        0.9078833515671513,
+        0.9926564649763995
+      ],
+      "training_run": "/Users/markcastillo/git/mlx-model-training-evals/artifacts/qwen2.5-3b/runs/ablation-20261007T232412183463Z-e75086bb/seed-43/runs/training-20261007T232412488380Z-6dec1ec4",
+      "evaluation_run": "/Users/markcastillo/git/mlx-model-training-evals/artifacts/qwen2.5-3b/runs/ablation-20261007T232412183463Z-e75086bb/seed-43/runs/evaluation-20261007T234410923125Z-88b47ddf",
+      "sweep_run": "ablation-20261007T232412183463Z-e75086bb"
+    },
+    {
+      "exact_match_rate": 0.96,
+      "schema_valid_rate": 1.0,
+      "test_loss": 0.003183625553744228,
+      "best_val_loss": 0.001227043685503304,
+      "adapter_parameters": 6651904,
+      "value": 44,
+      "ci95": [
+        0.8888683137691623,
+        0.9863041839985135
+      ],
+      "training_run": "/Users/markcastillo/git/mlx-model-training-evals/artifacts/qwen2.5-3b/runs/ablation-20261007T234617969625Z-ecde1dc7/seed-44/runs/training-20261007T234618291842Z-24f36771",
+      "evaluation_run": "/Users/markcastillo/git/mlx-model-training-evals/artifacts/qwen2.5-3b/runs/ablation-20261007T234617969625Z-ecde1dc7/seed-44/runs/evaluation-20261008T000429689781Z-438ca81f",
+      "sweep_run": "ablation-20261007T234617969625Z-ecde1dc7"
+    }
+  ],
+  "spread": {
+    "n": 3,
+    "mean": 0.9777777777777779,
+    "stdev": 0.01662958838566197,
+    "min": 0.96,
+    "max": 1.0
+  }
+}

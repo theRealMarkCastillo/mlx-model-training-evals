@@ -1,5 +1,6 @@
 """Build tutorial.ipynb from stable cells that call the same modules as the CLI."""
 from pathlib import Path
+
 import nbformat as nbf
 
 nb = nbf.v4.new_notebook()
@@ -33,6 +34,7 @@ Each step calls the same functions as `main.py`, and every run writes a self-des
 
 code('setup', '''import json
 from pathlib import Path
+
 import mlx.core as mx
 from IPython.display import HTML, Image, Markdown, display
 
@@ -84,8 +86,9 @@ About 30% of requests leave optional values out (e.g. no replica count), so the 
 This is still a synthetic task. High scores here say nothing about messy real traffic.''')
 
 code('prepare-data', '''from collections import Counter
+
+from src.dataset import DATA_DIR, load_samples, validate_splits
 from src.generate_data import main as generate
-from src.dataset import load_samples, validate_splits, DATA_DIR
 
 generate()
 validate_splits()
@@ -105,6 +108,7 @@ Each record becomes one token sequence: system prompt, user request, assistant a
 Without the mask, most of the gradient would go to memorizing the ~600-token system prompt, which is identical in every example. The evaluator applies this same mask when it reports "assistant loss", so training and evaluation losses are comparable.''')
 
 code('mask', '''from transformers import AutoTokenizer
+
 from src.explain import loss_mask_tokens, render_mask_html
 from src.models import PRESETS
 
@@ -121,7 +125,7 @@ Always measure the cheap alternatives first:
 
 If few-shot prompting already gets close to what you need, it may beat fine-tuning: nothing to train, store, or redeploy. The cost is a longer prompt on every request (compare `prompt_tokens` later). The cell below uses a 20-sample subset to stay quick; §6 repeats this on the full sets.''')
 
-code('baseline', '''from src.evaluate import run_comprehensive_evaluation, plot_eval_metrics
+code('baseline', '''from src.evaluate import run_comprehensive_evaluation
 from src.metrics import failure_examples, format_rate
 
 baseline = run_comprehensive_evaluation(preset=PRESET, variants=("base", "fewshot"), num_eval_samples=20)
@@ -161,11 +165,34 @@ for projection, entry in p["adapted_projections"].items():
     print(f"  {projection:10} rank {entry['rank']} in {entry['layers']} layers: {entry['parameters']:,} parameters")
 print(json.dumps(training.losses, indent=2))''')
 
+markdown('toy-notes', '''## 5b. What `train_model` actually does
+
+`run_training` delegates its loop to MLX-LM's `train_model`, so the mechanics above stay invisible. `src/mini_train.py` rebuilds the same loop by hand on a toy task that trains in about a second on any Mac, with no downloads:
+
+* A fixed table maps random 4-token "requests" to 2-token "answers". Training and validation contexts are **disjoint**, so the only thing the model can do with the training set is memorize it.
+* The forward pass computes logits *only* for answer positions — that construction is exactly what `mask_prompt: true` guarantees for the real trainer.
+* LoRA enters as `W2 + scale · (B @ A)` on the output head, with `B = 0` at step 0, so the first forward pass equals the frozen base model.
+* The gradient comes from `mx.value_and_grad`, and the update is a hand-written AdamW step (`src/mini_train.py:adamw_step`).
+
+Watch the validation loss: it cannot improve, because the validation answers do not exist in training. Once the adapter memorizes, val loss climbs *above* the ln(48) guessing line — the model becomes confidently wrong on unseen contexts. That is the overfitting signature you are looking for on real loss curves, in miniature.''')
+
+code('toy', '''from src.mini_train import run_toy_training
+
+toy = run_toy_training()   # 300 iterations, LoRA rank 4, ~1 second
+display(Image(filename=str(toy.run_dir / "loss_curve.png")))
+print(json.dumps(toy.summary(), indent=2))
+# Compare with full fine-tuning (every parameter, no LoRA):
+# toy = run_toy_training(mode="full")''')
+
 markdown('eval-notes', '''## 6. Full evaluation: baselines vs LoRA, holdout and challenge sets
 
 Every variant sees the same records with greedy decoding (temperature 0), so differences come from the model, not the dice. Read the error bars: they are 95% Wilson intervals. With n = 75, an exact-match rate of 90% means "probably between about 82% and 95%".
 
-**Loss and accuracy measure different things.** Assistant loss scores the reference answer token by token, rewarding the model for putting probability on it. Exact match scores the single greedy output, all or nothing. A model can lower its loss a lot and still produce the same wrong field, or improve accuracy with little change in loss. Use loss to watch training; use task metrics to decide.''')
+**Loss and accuracy measure different things.** Assistant loss scores the reference answer token by token, rewarding the model for putting probability on it. Exact match scores the single greedy output, all or nothing. A model can lower its loss a lot and still produce the same wrong field, or improve accuracy with little change in loss. Use loss to watch training; use task metrics to decide.
+
+**One more baseline worth running:** `main.py eval --constrained` adds a `grammar` variant that decodes the base model under a JSON grammar derived from the tool schemas, so invalid JSON is impossible. It answers "was this a formatting problem or a task problem?" without spending a single training step — and on the small base model it turns 0% schema validity into 100%, leaving the wrong-tool and wrong-value errors behind for training to fix.
+
+**And the cost side:** every metric so far measures the task. `main.py forgetting` measures what the task cost — it scores the base model and the adapter on 24 ordinary requests (arithmetic, facts, rewriting) with a plain assistant system prompt, and compares assistant loss per record with an exact sign test. An adapter that answers arithmetic with JSON has overfit the contract; the per-record loss plot shows exactly which requests got worse.''')
 
 code('evaluate', '''report = run_comprehensive_evaluation(preset=PRESET, challenge=True)
 run_dir = Path(report["run_dir"])
@@ -186,7 +213,16 @@ Aggregate scores hide the story. Look at per-field accuracy (which parameter is 
 
 * The base model fails on **format** (prose, markdown fences) and on **omitted defaults**.
 * LoRA fixes format almost completely; remaining errors concentrate in specific fields or in the challenge sets.
-* Abstaining on *new kinds* of unsupported requests is harder than abstaining on the kinds seen in training.''')
+* Abstaining on *new kinds* of unsupported requests is harder than abstaining on the kinds seen in training.
+
+When an aggregate is not enough, `main.py inspect` opens up a single decision: it greedy-decodes one record and prints every token with its probability, the runner-up's probability, and the divergence point — the first token where the output leaves the reference answer, with the reference token's rank and probability at that step.
+
+```bash
+uv run python main.py inspect --variant base --split test --index 0   # no adapter needed
+uv run python main.py inspect --variant lora --split test --index 0   # the trained adapter
+```
+
+That is how "the base model scores 0%" becomes "at step 0 it put 69% on `restart` and ~0% on the reference `{\\"` — the envelope is a format decision, not a capability one".''')
 
 code('errors', '''from src.metrics import CATEGORY_HELP
 
@@ -239,7 +275,13 @@ markdown('exercises', '''## 10. Exercises
 2. **Starve the data.** Regenerate with 50 training records instead of 250. Which challenge set suffers first?
 3. **Remove abstention training.** Drop `no_action` from the training tools. What does the model do with unsupported requests?
 4. **Find the overfitting point.** Run the `iters` ablation up to 800. Does exact match fall when validation loss rises?
-5. **Scale up.** Repeat §4–6 with `PRESET = "14b"`. Does the bigger base model close the few-shot gap without training?''')
+5. **Scale up.** Repeat §4–6 with `PRESET = "14b"`. Does the bigger base model close the few-shot gap without training?
+6. **Separate formatting from task skill.** Run `main.py eval --preset 3b --constrained` and compare the `grammar` variant against LoRA and few-shot. When invalid JSON is impossible, which failures survive — and what does that say about what training actually bought?
+7. **How much of the headline is luck?** Run the sweep one seed per invocation (`main.py ablate seed 42 --iters 200`, then 43, then 44) and merge with `scripts/merge_seed_sweep.py`. Compare the spread across seeds with the Wilson intervals on a single run.
+8. **What did the task cost?** Run `main.py forgetting` and read the per-record plot: which ordinary requests got worse, which got better, and does the sign test agree with the visual impression?
+9. **Sample instead of decoding greedily.** `main.py eval --preset 3b --temperature 0.7 --seed 7`. Does format validity drop, and by how much? This is the cost you would pay for the diversity greedy decoding does not give you.
+
+Solutions and expected outcomes for all of these are in [`docs/exercise-solutions.md`](docs/exercise-solutions.md).''')
 
 nb.cells = cells
 nbf.validate(nb)
