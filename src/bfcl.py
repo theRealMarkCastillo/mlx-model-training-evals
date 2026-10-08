@@ -27,6 +27,8 @@ from pathlib import Path
 SUPPORTED_TYPES = {"dict", "object", "array", "list", "string", "integer", "float", "number", "boolean"}
 SCALAR_TYPES = {"string", "integer", "float", "number", "boolean"}
 NO_ACTION = '{"tool":"no_action","parameters":{"reason":"unsupported_request"}}'
+# The refusal schema for `irrelevance`, where the correct answer is "do not call anything".
+NO_ACTION_SCHEMA = {"type": "dict", "properties": {"reason": {"type": "string"}}, "required": ["reason"]}
 
 
 def is_supported(schema):
@@ -294,6 +296,36 @@ def load_bfcl(questions_path, answers_path=None, *, max_records=None):
                 {"role": "system", "content": build_system_prompt(functions)},
                 {"role": "user", "content": question},
                 {"role": "assistant", "content": canonical_completion(function_name, acceptable_args, parameters)},
+            ],
+        })
+    return records, skipped
+
+
+def load_bfcl_irrelevance(questions_path, *, max_records=None):
+    """Convert the BFCL irrelevance category (which ships no answer file) into records.
+
+    The correct behaviour is to *not* call the provided function, so each record has no
+    assistant turn and `meta["irrelevant"] = True`; the hallucination rate is scored
+    separately in `src/bfcl_eval.run_bfcl_irrelevance`.
+    """
+    questions_path, max_records = Path(questions_path), None if max_records is None else int(max_records)
+    records, skipped = [], {"unsupported_schema": 0}
+    for record in _read_jsonl(questions_path):
+        if max_records is not None and len(records) >= max_records:
+            break
+        functions = record.get("function") or []
+        if any(not is_supported(fn.get("parameters") or {}) for fn in functions):
+            skipped["unsupported_schema"] += 1
+            continue
+        question = " ".join(turn["content"] for turn in record["question"][0] if turn["role"] == "user")
+        records.append({
+            "id": f"{questions_path.stem}:{record['id']}",
+            "prompt": question,
+            "meta": {"source": "bfcl_irrelevance", "bfcl_id": record["id"], "function": functions[0],
+                     "irrelevant": True},
+            "messages": [
+                {"role": "system", "content": build_system_prompt(functions)},
+                {"role": "user", "content": question},
             ],
         })
     return records, skipped

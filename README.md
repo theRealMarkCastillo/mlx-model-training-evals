@@ -276,7 +276,15 @@ The synthetic task could be protecting the conclusion, so the same comparison is
 
 The 3B base model already writes the contract: a clear per-record prompt — function name, typed parameters, an envelope example — gets 97% of outputs schema-valid and 82% of arguments right, with no training and no grammar. So the grammar has nothing left to fix, and its constraints actively cost: argument accuracy *drops* to 37% (McNemar p ≈ 0). The failures are visible and consistent — sign flips (`base: 4` → `-4`) and the model's native `<tool_call>`/single-quote tokens leaking into string values — because this grammar forbids whitespace and forces a compact, enum-pinned path whose tokenization differs from the model's natural (already-correct) one.
 
-Two honest caveats before over-reading that number: this grammar is a deliberately minimal one (no whitespace, strings capped at 24 tokens, the tool forced to the record's function name), so a production whitespace-allowing grammar would degrade *less* — the 21/395 outputs that ran out of the 200-token budget are largely this artifact. And `simple` is the easiest category; `multiple` (tool choice among several) and `irrelevance` (abstention — where the grammar was the surprise winner at every size) are the natural next steps. What the pilot does settle is the direction: grammar-constrained decoding is a fix for *missing* format, and on real schemas the format was never missing.
+Two honest caveats before over-reading that number: this grammar is a deliberately minimal one (no whitespace, strings capped at 24 tokens, the tool forced to the record's function name), so a production whitespace-allowing grammar would degrade *less* — the 21/395 outputs that ran out of the 200-token budget are largely this artifact. And `simple` is the easiest category; `multiple` (tool choice among several) is the natural next step.
+
+The abstention axis is where the synthetic task's grammar win was cleanest (0% → 100%), so it was re-run too. On BFCL `irrelevance` (237 records where the one provided function is a deliberate mismatch), the metric is the hallucinated-call rate — and the grammar does **not** help:
+
+| Metric | Base (zero-shot) | Base + JSON grammar |
+|---|---:|---:|
+| hallucinated-call rate | 37.6% [32–44] | 45.1% [39–52] |
+
+The base model already refuses 62% of the time (the synthetic base refused ~0% because it could not format at all), and forcing a valid envelope — with `no_action` offered as an alternative — leaves the model calling the irrelevant function slightly *more* often. Both of the synthetic grammar's wins, format and abstention, were the same artifact: they fixed a base model that could not follow a prompt. On real schemas the prompt already does the job, and the grammar adds nothing. Grammar-constrained decoding is a fix for *missing* format — and on real data the format was never missing.
 
 ## Teaching tools
 

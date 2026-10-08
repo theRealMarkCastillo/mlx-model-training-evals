@@ -18,10 +18,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from src.bfcl import load_bfcl, save_records  # noqa: E402
+from src.bfcl import load_bfcl, load_bfcl_irrelevance, save_records  # noqa: E402
 
 BASE = "https://huggingface.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard/resolve/main"
 OUT = ROOT / "data" / "bfcl_simple.jsonl"
+OUT_IRRELEVANCE = ROOT / "data" / "bfcl_irrelevance.jsonl"
 CACHE = Path("/tmp") / "bfcl-fetch"
 
 
@@ -41,6 +42,12 @@ def main():
     records, skipped = load_bfcl(questions, answers)
     save_records(records, OUT)
     print(f"Wrote {len(records)} records to {OUT.relative_to(ROOT)}")
+    print(f"Skipped: {json.dumps(skipped)}")
+
+    irrelevance = fetch("BFCL_v3_irrelevance.json")
+    records, skipped = load_bfcl_irrelevance(irrelevance)
+    save_records(records, OUT_IRRELEVANCE)
+    print(f"Wrote {len(records)} records to {OUT_IRRELEVANCE.relative_to(ROOT)}")
     print(f"Skipped: {json.dumps(skipped)}")
     return records
 

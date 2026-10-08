@@ -14,6 +14,7 @@ from src.bfcl import (
     canonical_completion,
     is_supported,
     load_bfcl,
+    load_bfcl_irrelevance,
     parse_bfcl_call,
     score_bfcl_call,
 )
@@ -137,6 +138,17 @@ class BfclScoringTests(unittest.TestCase):
     def test_score_rejects_wrong_parameter_type(self):
         parsed = {"tool": "calculate_triangle_area", "parameters": {"base": "10", "height": 5}}
         self.assertFalse(score_bfcl_call(parsed, META)["is_schema_valid"])
+
+
+class BfclIrrelevanceTests(unittest.TestCase):
+    def test_irrelevance_records_have_no_assistant_turn(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            questions = Path(tmp) / "irrel.jsonl"
+            write_jsonl(questions, [QUESTION])
+            records, skipped = load_bfcl_irrelevance(questions)
+        self.assertEqual(skipped, {"unsupported_schema": 0})
+        self.assertEqual([m["role"] for m in records[0]["messages"]], ["system", "user"])
+        self.assertTrue(records[0]["meta"]["irrelevant"])
 
 
 if __name__ == "__main__":

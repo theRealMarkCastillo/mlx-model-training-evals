@@ -1,0 +1,36 @@
+{
+  "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+  "preset": "3b",
+  "records_path": "/Users/markcastillo/git/mlx-model-training-evals/data/bfcl_irrelevance.jsonl",
+  "variants": [
+    "base",
+    "grammar"
+  ],
+  "max_tokens": 200,
+  "datasets": {
+    "bfcl_irrelevance": {
+      "base": {
+        "num_samples": 237,
+        "hallucination_rate": 0.3755274261603376,
+        "intervals": {
+          "hallucination_rate": [
+            0.31632058669999197,
+            0.43870512314415466
+          ]
+        },
+        "abstained": 148
+      },
+      "grammar": {
+        "num_samples": 237,
+        "hallucination_rate": 0.45147679324894513,
+        "intervals": {
+          "hallucination_rate": [
+            0.3893959713408976,
+            0.5151055765644477
+          ]
+        },
+        "abstained": 130
+      }
+    }
+  }
+}

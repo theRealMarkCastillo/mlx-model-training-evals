@@ -36,6 +36,7 @@ from src.schema_grammar import JsonSchemaGrammar, SchemaGrammarProcessor, bfcl_e
 
 console = Console()
 DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "bfcl_simple.jsonl"
+IRRELEVANCE_PATH = Path(__file__).resolve().parent.parent / "data" / "bfcl_irrelevance.jsonl"
 RATE_FLAGS = (("schema_valid_rate", "is_schema_valid"), ("tool_accuracy", "tool_correct"),
               ("arg_accuracy", "args_correct"))
 LABELS = {"base": "Base (zero-shot)", "grammar": "Base + JSON grammar"}
@@ -136,3 +137,79 @@ def print_bfcl_report(by_variant, paired=None):
         for metric, flag in RATE_FLAGS:
             if flag in paired:
                 console.print(f"  {metric}: p={paired[flag]['p_value']:.3f}")
+
+
+def run_bfcl_irrelevance(model_name=None, *, preset="3b", records_path=None, max_tokens=200,
+                         max_records=None, output_dir=None, quiet=False):
+    """Measure the hallucination rate on the irrelevance category (the model must not call).
+
+    The correct behaviour is to refuse (`no_action` in this repo's envelope) rather than call
+    the provided — but irrelevant — function. The grammar variant is given a two-function
+    envelope (`no_action` + the record's function) so it *can* express a refusal; the metric
+    is the fraction of records where the model nevertheless calls the irrelevant function.
+    """
+    from src.bfcl import NO_ACTION_SCHEMA
+    records = load_bfcl_records(records_path or IRRELEVANCE_PATH, max_records)
+    preset = preset or "3b"
+    model_name = model_name or PRESETS[preset].model
+    console.print(f"[bold]BFCL irrelevance: {len(records)} records, model {model_name}[/bold]")
+    model, tokenizer = mlx_lm.load(model_name)
+    vocab_size = getattr(getattr(model, "args", None), "vocab_size", None) or tokenizer_vocab_size(tokenizer)
+    datasets = {"bfcl_irrelevance": {}}
+    try:
+        for variant in ("base", "grammar"):
+            console.print(f"[bold]Evaluating {LABELS.get(variant, variant)}[/bold]")
+            results = []
+            for record in tqdm(records, desc=variant, leave=False):
+                if variant == "grammar":
+                    functions = [{"name": "no_action", "parameters": NO_ACTION_SCHEMA},
+                                 {"name": record["meta"]["function"]["name"],
+                                  "parameters": record["meta"]["function"].get("parameters") or {}}]
+                    grammar = JsonSchemaGrammar(bfcl_envelope(functions))
+                    processor = SchemaGrammarProcessor(tokenizer, vocab_size, grammar)
+                    generated = constrained_generate(model, tokenizer, record["messages"], max_tokens,
+                                                     processor=processor)
+                else:
+                    generated = generate_response(model, tokenizer, record["messages"], max_tokens)
+                parsed = parse_bfcl_call(generated["raw_output"])
+                hallucinated = bool(parsed and parsed.get("tool") == record["meta"]["function"]["name"])
+                results.append({"id": record["id"], "prompt": record["prompt"], "meta": record["meta"],
+                                "raw_output": generated["raw_output"], "hallucinated": hallucinated})
+            datasets["bfcl_irrelevance"][variant] = summarize_hallucination(results)
+    finally:
+        del model
+        import mlx.core as mx
+        mx.clear_cache()
+
+    report = {"model": model_name, "preset": preset, "records_path": str(records_path or IRRELEVANCE_PATH),
+              "variants": ["base", "grammar"], "max_tokens": max_tokens, "datasets": datasets}
+    if output_dir:
+        path = Path(output_dir) / "bfcl_irrelevance.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        compact = {key: value for key, value in report.items() if key != "datasets"}
+        compact["datasets"] = {name: {v: {k: x for k, x in s.items() if k != "sample_results"}
+                                      for v, s in by_variant.items()}
+                               for name, by_variant in report["datasets"].items()}
+        path.write_text(json.dumps(compact, indent=2) + "\n")
+        console.print(f"Saved {path}")
+    if not quiet:
+        table = Table(title="BFCL irrelevance: hallucinated-call rate (lower is better)")
+        table.add_column("Metric", justify="left")
+        for variant in ("base", "grammar"):
+            table.add_column(LABELS.get(variant, variant), justify="right")
+        table.add_row("hallucination_rate", *[
+            format_rate(datasets["bfcl_irrelevance"][variant]["hallucination_rate"],
+                        datasets["bfcl_irrelevance"][variant]["intervals"]["hallucination_rate"])
+            for variant in ("base", "grammar")])
+        console.print(table)
+    return report
+
+
+def summarize_hallucination(results):
+    n = len(results)
+    if not n:
+        raise ValueError("Cannot summarize zero results")
+    hallucinated = sum(bool(result["hallucinated"]) for result in results)
+    return {"num_samples": n, "hallucination_rate": hallucinated / n,
+            "intervals": {"hallucination_rate": wilson_interval(hallucinated, n)},
+            "abstained": n - hallucinated, "sample_results": results}

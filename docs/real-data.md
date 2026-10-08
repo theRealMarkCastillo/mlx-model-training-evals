@@ -64,7 +64,17 @@ Run with `python main.py bfcl`; the full per-sample report is `docs/reference-ru
 
 **The conclusion does not generalize as stated — it generalizes as a warning.** The 3B base model already writes the contract on real schemas: a clear per-record prompt gets 97% of outputs schema-valid and 82% of arguments right with no training and no grammar. So grammar-constrained decoding has nothing to fix, and its constraints cost — argument accuracy drops to 37% (McNemar p ≈ 0). The failures are visible and consistent: sign flips (`base: 4` → `-4`) and the model's native `<tool_call>`/single-quote tokens leaking into string values, because the grammar forbids whitespace and forces a compact, enum-pinned path whose tokenization differs from the model's natural one.
 
-Honest limits: this grammar is a minimal one (no whitespace, strings capped at 24 tokens, tool forced to the record's function name), so a production whitespace-allowing grammar would degrade *less* — the 21/395 outputs that hit the 200-token budget are largely this artifact. And `simple` is the easiest category; `multiple` (tool choice) and `irrelevance` (abstention — where the grammar won at every size on the synthetic task) are the natural next steps. The direction is the finding: grammar buys the contract *only when the model lacks it*, and on real schemas the format was never missing.
+Honest limits: this grammar is a minimal one (no whitespace, strings capped at 24 tokens, tool forced to the record's function name), so a production whitespace-allowing grammar would degrade *less* — the 21/395 outputs that hit the 200-token budget are largely this artifact. And `simple` is the easiest category; `multiple` (tool choice) is the natural next step. The direction is the finding: grammar buys the contract *only when the model lacks it*, and on real schemas the format was never missing.
+
+### Abstention (BFCL irrelevance, 237 records)
+
+The synthetic task's cleanest grammar win was abstention (0% → 100%), so it was re-run on real data. BFCL `irrelevance` ships no answer file — the one provided function is a deliberate mismatch, and the correct behaviour is to refuse — so the metric is the hallucinated-call rate (`python main.py bfcl --irrelevance`):
+
+| Metric | Base (zero-shot) | Base + JSON grammar |
+|---|---:|---:|
+| hallucinated-call rate | 37.6% [32–44] | 45.1% [39–52] |
+
+The grammar does **not** help. The base model already refuses 62% of the time (the synthetic base refused ~0% because it could not format at all), and forcing a valid envelope — with `no_action` offered as an alternative — leaves the model calling the irrelevant function slightly more often. Both synthetic grammar wins, format and abstention, were the same artifact: they fixed a base model that could not follow a prompt. On real data the prompt already does the job.
 
 ## Option B — BFCL (or ToolBench) as a full second task
 
@@ -82,9 +92,9 @@ Multi-tool requests, nested parameters, ambiguous instructions, contradictions �
 
 ## Recommendation
 
-**Option A is done** (see *Results*). It settled the direction — on real schemas the 3B base already writes the contract, so grammar-constrained decoding has nothing to fix and its constraints cost — while leaving the synthetic task intact as the controlled experiment.
+**Option A is done** (see *Results*). It settled the direction — on real schemas the 3B base already writes the contract and refuses when it should, so grammar-constrained decoding has nothing to fix and its constraints cost (82% → 37% on arguments, and no abstention gain) — while leaving the synthetic task intact as the controlled experiment.
 
-The next step, if this is worth pursuing, is to close the two obvious gaps before believing the "grammar hurts" number is general:
+The remaining gap, if this is worth pursuing, is the one the results keep pointing at:
 
-1. **Allow whitespace in the grammar.** The largest suspected artifact is the compact, whitespace-free path; a production grammar allows `{ "tool": ... }` spacing and would degrade less.
-2. **Run `irrelevance` (and `multiple`).** Abstention is where the grammar was the surprise winner at every size on the synthetic task; if it wins there on real data too, the honest story is "grammar buys *refusal*, not *correctness*" — which would be a cleaner, more useful conclusion than a single average.
+1. **Allow whitespace in the grammar.** The largest suspected artifact is the compact, whitespace-free path; a production grammar allows `{ "tool": ... }` spacing and would degrade less. If the degradation survives whitespace, "grammar hurts on real data" is robust.
+2. **Run `multiple`** (2–4 candidate functions per record) to exercise the dependent-`parameters` node on real data, and to test tool *choice* rather than argument filling.
