@@ -82,6 +82,18 @@ Where does the base model's 82% come from? Ablating the prompt — replacing the
 
 Without the prompt's format guidance the base model emits **zero** structured calls — it explains the answer in prose, names the function in backticks, but never produces the envelope. The prompt and the grammar are two ways to supply the same *format contract*, and the prompt is by far the better carrier of it: it shapes the model's *intent* (what to output), so it gets the structure *and* the values right (82%); the grammar only constrains *structure* (what is allowed), so it forces the envelope while the model fills it with whatever its unshaped intent produces (22–37%). Grammar-constrained decoding is a weaker, narrower version of the prompt, not a substitute for it.
 
+### Training does not beat prompting either
+
+The repo's core claim is that LoRA fine-tuning is what finally teaches the contract, so that cell was measured too. A LoRA was trained on a 270-record split of `simple` itself (in-distribution — BFCL ships no training data), evaluated on the held-out 80 records:
+
+| Metric (test split, n = 80) | Base | Grammar | LoRA |
+|---|---:|---:|---:|
+| schema-valid | 96.2% | 95.0% | 97.5% |
+| tool accuracy | 97.5% | 95.0% | 100.0% |
+| **argument accuracy** | **75.0%** | 33.8% | **72.5%** |
+
+The adapter ties the base model (72.5% vs 75.0%, inside the ±10% interval) rather than beating it. That is the opposite of the synthetic task, where LoRA went 0% → 100%: there the base model could not follow the prompt, so training *was* supplying the format. On real schemas the prompt already supplies it, and in-distribution fine-tuning adds nothing. "Training buys the decisions" was really "training buys the *format* when the prompt does not deliver it" — a property of the weak base model, not of fine-tuning in general. (Training details: `config/bfcl.yaml`, 200 iters, val loss 1.22 → 0.067; the split and report are `scripts/split_bfcl.py` and `docs/reference-run/bfcl_split_test.json`.)
+
 ### Abstention (BFCL irrelevance, 237 records)
 
 The synthetic task's cleanest grammar win was abstention (0% → 100%), so it was re-run on real data. BFCL `irrelevance` ships no answer file — the one provided function is a deliberate mismatch, and the correct behaviour is to refuse — so the metric is the hallucinated-call rate (`python main.py bfcl --irrelevance`):
@@ -108,8 +120,8 @@ Multi-tool requests, nested parameters, ambiguous instructions, contradictions �
 
 ## Recommendation
 
-**Option A is done, including the prompt ablation** (see *Results*). The full picture: on real schemas the 3B base writes the contract *because the prompt supplies it* (82% args with the full prompt, 0% with names alone); grammar-constrained decoding is a weaker carrier of the same contract (22–37%) and adds nothing on top of a good prompt; abstention gains nothing either. The synthetic task stays intact as the controlled experiment it was designed to be.
+**Option A is done, including the prompt ablation and an in-distribution training run** (see *Results*). The full picture on real schemas: the 3B base writes the contract *because the prompt supplies it* (82% args with the full prompt, 0% with names alone); grammar-constrained decoding is a weaker carrier of the same contract (22–37%); abstention gains nothing; and an in-distribution LoRA ties the base model (72.5% vs 75.0%) rather than beating it. The synthetic task stays intact as the controlled experiment it was designed to be.
 
-Where this leaves the project: the grammar's synthetic wins were a property of a weak base model, and the prompt is what actually supplies format on real data. The honest, useful conclusion is **"format is supplied by the prompt, and grammar-constrained decoding is a weaker substitute for it, not an addition to it."**
+The honest, useful conclusion is now threefold: **format is supplied by the prompt; grammar-constrained decoding is a weaker substitute for it, not an addition; and fine-tuning on real schemas buys nothing the prompt does not already deliver.** The synthetic task's "training buys the decisions" was really "training buys the format when a weak base model cannot follow a prompt" — a property of that base model, not of the methods.
 
-The one question the pilot does not answer is whether *training* on real schemas buys back the decisions — the 18% of arguments the best prompting-only setting still gets wrong. That is Option B, and it is a real commitment: BFCL is eval-only, so a training run needs a second data source (Gorilla's APIBench/OpenFunctions or ToolBench) with its own license and preprocessing. It is worth doing only if the goal is to *maximize* real-schema accuracy, not to demonstrate the pipeline — which the synthetic task already does.
+If the goal is to push real-schema argument accuracy above ~75%, none of the repo's three levers (prompting, grammar, LoRA) does it on this base model; that would mean a larger base model, a stronger instruction-tuned model, or a genuinely harder generalization target — all beyond this pilot's scope.

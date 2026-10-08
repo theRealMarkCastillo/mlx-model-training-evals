@@ -112,7 +112,10 @@ def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=(
                             for _, flag in RATE_FLAGS}
     if output_dir:
         suffix = "" if prompt_style == "full" else f"_{prompt_style}"
-        path = Path(output_dir) / f"{Path(records_path or DATA_PATH).stem}{suffix}.json"
+        stem = Path(records_path or DATA_PATH).stem
+        if stem in ("train", "valid", "test"):
+            stem = f"{Path(records_path).parent.name}_{stem}"   # avoid a bare 'test.json'
+        path = Path(output_dir) / f"{stem}{suffix}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         compact = {key: value for key, value in report.items() if key != "datasets"}
         compact["datasets"] = {

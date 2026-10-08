@@ -1,0 +1,113 @@
+{
+  "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+  "preset": "3b",
+  "records_path": "data/bfcl_split/test.jsonl",
+  "variants": [
+    "base",
+    "grammar",
+    "lora"
+  ],
+  "max_tokens": 200,
+  "prompt_style": "full",
+  "adapter_path": "/Users/markcastillo/git/mlx-model-training-evals/artifacts/qwen2.5-3b/runs/training-20261008T171553991726Z-85dc9cf1/adapters",
+  "paired": {
+    "is_schema_valid": {
+      "both_correct": 73,
+      "only_a": 4,
+      "only_b": 3,
+      "neither": 0,
+      "p_value": 1.0
+    },
+    "tool_correct": {
+      "both_correct": 74,
+      "only_a": 4,
+      "only_b": 2,
+      "neither": 0,
+      "p_value": 0.6875
+    },
+    "args_correct": {
+      "both_correct": 26,
+      "only_a": 34,
+      "only_b": 1,
+      "neither": 19,
+      "p_value": 2.0954757928848267e-09
+    }
+  },
+  "datasets": {
+    "bfcl_simple": {
+      "base": {
+        "num_samples": 80,
+        "intervals": {
+          "schema_valid_rate": [
+            0.8954510802560568,
+            0.9871656636992113
+          ],
+          "tool_accuracy": [
+            0.9133539994467789,
+            0.9931172511018748
+          ],
+          "arg_accuracy": [
+            0.6451511899886556,
+            0.8319389418790569
+          ]
+        },
+        "schema_valid_rate": 0.9625,
+        "tool_accuracy": 0.975,
+        "arg_accuracy": 0.75,
+        "error_categories": {
+          "parameters": 17,
+          "schema": 1,
+          "json": 2
+        }
+      },
+      "grammar": {
+        "num_samples": 80,
+        "intervals": {
+          "schema_valid_rate": [
+            0.878375474489178,
+            0.9803867628727044
+          ],
+          "tool_accuracy": [
+            0.878375474489178,
+            0.9803867628727044
+          ],
+          "arg_accuracy": [
+            0.24345459812221978,
+            0.44643681616376707
+          ]
+        },
+        "schema_valid_rate": 0.95,
+        "tool_accuracy": 0.95,
+        "arg_accuracy": 0.3375,
+        "error_categories": {
+          "parameters": 49,
+          "json": 4
+        }
+      },
+      "lora": {
+        "num_samples": 80,
+        "intervals": {
+          "schema_valid_rate": [
+            0.9133539994467789,
+            0.9931172511018748
+          ],
+          "tool_accuracy": [
+            0.954180263735425,
+            1.0
+          ],
+          "arg_accuracy": [
+            0.618557347158301,
+            0.8108237715226401
+          ]
+        },
+        "schema_valid_rate": 0.975,
+        "tool_accuracy": 1.0,
+        "arg_accuracy": 0.725,
+        "error_categories": {
+          "parameters": 20,
+          "schema": 2
+        }
+      }
+    }
+  }
+}

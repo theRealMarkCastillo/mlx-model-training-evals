@@ -295,6 +295,16 @@ The decisive question is then: where does the base model's 82% come from? Ablati
 
 Without the prompt's format guidance the base model emits **zero** structured calls — it explains the answer in prose, names the function in backticks, but never produces the envelope. The prompt and the grammar are two ways to supply the same *format contract*, and the prompt is by far the better carrier of it: it shapes the model's *intent* (what to output), so it gets the structure *and* the values right (82%); the grammar only constrains *structure* (what is allowed), so it forces the envelope while the model fills it with whatever its unshaped intent produces (22–37%). Grammar-constrained decoding is not a substitute for the prompt — it is a weaker, narrower version of it.
 
+The repo's core claim is that LoRA fine-tuning is what finally teaches the contract, so that cell was measured too: a LoRA trained on a 270-record split of `simple` itself (in-distribution — BFCL ships no training data), evaluated on the held-out 80 records (`python main.py bfcl --records data/bfcl_split/test.jsonl --variants base grammar lora`):
+
+| Metric (test split, n = 80) | Base | Grammar | LoRA |
+|---|---:|---:|---:|
+| schema-valid | 96.2% | 95.0% | 97.5% |
+| tool accuracy | 97.5% | 95.0% | 100.0% |
+| **argument accuracy** | **75.0%** | 33.8% | **72.5%** |
+
+The adapter ties the base model (72.5% vs 75.0%, inside the ±10% interval of 80 records) rather than beating it — it does not buy back the decisions that prompting leaves on the table. That is the opposite of the synthetic task, where LoRA went 0% → 100%: there, the base model could not follow the prompt at all, so training *was* supplying the format. On real schemas the prompt already supplies it, and in-distribution fine-tuning adds nothing. The synthetic "training buys the decisions" conclusion was really "training buys the *format* when the prompt does not deliver it" — which is a property of the weak base model, not of fine-tuning in general.
+
 The abstention axis is where the synthetic task's grammar win was cleanest (0% → 100%), so it was re-run too. On BFCL `irrelevance` (237 records where the one provided function is a deliberate mismatch), the metric is the hallucinated-call rate — and the grammar does **not** help:
 
 | Metric | Base (zero-shot) | Base + JSON grammar |
