@@ -1,0 +1,89 @@
+{
+  "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+  "preset": "3b",
+  "records_path": "data/bfcl_multiple.jsonl",
+  "variants": [
+    "base",
+    "grammar"
+  ],
+  "max_tokens": 200,
+  "paired": {
+    "is_schema_valid": {
+      "both_correct": 167,
+      "only_a": 14,
+      "only_b": 8,
+      "neither": 6,
+      "p_value": 0.28627872467041016
+    },
+    "tool_correct": {
+      "both_correct": 172,
+      "only_a": 13,
+      "only_b": 5,
+      "neither": 5,
+      "p_value": 0.09625244140625
+    },
+    "args_correct": {
+      "both_correct": 61,
+      "only_a": 86,
+      "only_b": 9,
+      "neither": 39,
+      "p_value": 6.606356572585723e-17
+    }
+  },
+  "datasets": {
+    "bfcl_simple": {
+      "base": {
+        "num_samples": 195,
+        "intervals": {
+          "schema_valid_rate": [
+            0.8831093489855527,
+            0.9567551461703906
+          ],
+          "tool_accuracy": [
+            0.908187963320368,
+            0.9719095615436444
+          ],
+          "arg_accuracy": [
+            0.6888661362288071,
+            0.8090176064085484
+          ]
+        },
+        "schema_valid_rate": 0.9282051282051282,
+        "tool_accuracy": 0.9487179487179487,
+        "arg_accuracy": 0.7538461538461538,
+        "error_categories": {
+          "schema": 11,
+          "parameters": 30,
+          "tool": 4,
+          "json": 3
+        }
+      },
+      "grammar": {
+        "num_samples": 195,
+        "intervals": {
+          "schema_valid_rate": [
+            0.8468942884193463,
+            0.9326206621744934
+          ],
+          "tool_accuracy": [
+            0.8588182129926221,
+            0.9408132524552522
+          ],
+          "arg_accuracy": [
+            0.2949669589870875,
+            0.42843096176993717
+          ]
+        },
+        "schema_valid_rate": 0.8974358974358975,
+        "tool_accuracy": 0.9076923076923077,
+        "arg_accuracy": 0.358974358974359,
+        "error_categories": {
+          "parameters": 104,
+          "json": 13,
+          "schema": 7,
+          "tool": 1
+        }
+      }
+    }
+  }
+}

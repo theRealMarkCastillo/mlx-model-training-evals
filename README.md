@@ -270,13 +270,21 @@ The synthetic task could be protecting the conclusion, so the same comparison is
 
 | Metric | Base (zero-shot) | Base + JSON grammar |
 |---|---:|---:|
-| schema-valid | 97.2% [95–98] | 94.4% [92–96] |
-| tool accuracy | 98.2% [96–99] | 94.7% [92–96] |
-| **argument accuracy** | **81.5%** [77–85] | **37.0%** [32–42] |
+| schema-valid | 97.2% [95–98] | 93.9% [91–96] |
+| tool accuracy | 98.2% [96–99] | 94.2% [91–96] |
+| **argument accuracy** | **81.5%** [77–85] | **37.7%** [33–43] |
 
-The 3B base model already writes the contract: a clear per-record prompt — function name, typed parameters, an envelope example — gets 97% of outputs schema-valid and 82% of arguments right, with no training and no grammar. So the grammar has nothing left to fix, and its constraints actively cost: argument accuracy *drops* to 37% (McNemar p ≈ 0). The failures are visible and consistent — sign flips (`base: 4` → `-4`) and the model's native `<tool_call>`/single-quote tokens leaking into string values — because this grammar forbids whitespace and forces a compact, enum-pinned path whose tokenization differs from the model's natural (already-correct) one.
+The 3B base model already writes the contract: a clear per-record prompt — function name, typed parameters, an envelope example — gets 97% of outputs schema-valid and 82% of arguments right, with no training and no grammar. So the grammar has nothing left to fix, and its constraints actively cost: argument accuracy *drops* to 37% (McNemar p ≈ 0). The failures are visible and consistent — sign flips (`base: 4` → `-4`) and the model's native `<tool_call>`/single-quote tokens leaking into string values.
 
-Two honest caveats before over-reading that number: this grammar is a deliberately minimal one (no whitespace, strings capped at 24 tokens, the tool forced to the record's function name), so a production whitespace-allowing grammar would degrade *less* — the 21/395 outputs that ran out of the 200-token budget are largely this artifact. And `simple` is the easiest category; `multiple` (tool choice among several) is the natural next step.
+The natural suspicion is that the grammar's whitespace-free, compact path causes this, so it was tested directly: allowing structural whitespace (and capping a whitespace run, like strings and arrays are already capped) changes almost nothing — argument accuracy stays 37.7%, and schema validity stays 94%. The degradation is not a tokenization artifact; it is the model fighting an envelope its native format does not produce, which the grammar (a structural constraint) cannot fix. `multiple` (195 records, 2–4 candidate functions per record, exercising the dependent-`parameters` node) confirms it on tool *choice*:
+
+| Metric | Base (zero-shot) | Base + JSON grammar |
+|---|---:|---:|
+| schema-valid | 92.8% [88–96] | 89.7% [85–93] |
+| tool accuracy | 94.9% [91–97] | 90.8% [86–94] |
+| **argument accuracy** | **75.4%** [69–81] | **35.9%** [29–43] |
+
+Tool choice survives the grammar (90.8%, p = 0.10), and argument accuracy collapses exactly as it did on `simple`.
 
 The abstention axis is where the synthetic task's grammar win was cleanest (0% → 100%), so it was re-run too. On BFCL `irrelevance` (237 records where the one provided function is a deliberate mismatch), the metric is the hallucinated-call rate — and the grammar does **not** help:
 

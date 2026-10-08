@@ -105,7 +105,7 @@ def run_bfcl_eval(model_name=None, *, preset="3b", records_path=None, variants=(
                                                     datasets["bfcl_simple"][variants[1]]["sample_results"], flag)
                             for _, flag in RATE_FLAGS}
     if output_dir:
-        path = Path(output_dir) / "bfcl_eval.json"
+        path = Path(output_dir) / f"{Path(records_path or DATA_PATH).stem}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         compact = {key: value for key, value in report.items() if key != "datasets"}
         compact["datasets"] = {
@@ -184,7 +184,7 @@ def run_bfcl_irrelevance(model_name=None, *, preset="3b", records_path=None, max
     report = {"model": model_name, "preset": preset, "records_path": str(records_path or IRRELEVANCE_PATH),
               "variants": ["base", "grammar"], "max_tokens": max_tokens, "datasets": datasets}
     if output_dir:
-        path = Path(output_dir) / "bfcl_irrelevance.json"
+        path = Path(output_dir) / f"{Path(records_path or IRRELEVANCE_PATH).stem}.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         compact = {key: value for key, value in report.items() if key != "datasets"}
         compact["datasets"] = {name: {v: {k: x for k, x in s.items() if k != "sample_results"}

@@ -2,7 +2,7 @@
 
 Every honest section of this repo says the same thing: the task is synthetic. Wording, entities and request kinds come from small templates, so the numbers say something about *this* pipeline, not about production traffic. This document scopes what it would take to put a real benchmark behind the same measurements, and what each option costs.
 
-**Status (2026-10-07):** Option A is implemented — the loader (`src/bfcl.py`), the general JSON-Schema grammar (`src/schema_grammar.py`), and the eval harness (`src/bfcl_eval.py`, run with `python main.py bfcl`) — and the pilot has been run on BFCL v3 `simple`. See the *Results* section and `docs/reference-run/bfcl_eval.json`.
+**Status (2026-10-07):** Option A is implemented — the loader (`src/bfcl.py`), the general JSON-Schema grammar (`src/schema_grammar.py`), and the eval harness (`src/bfcl_eval.py`, run with `python main.py bfcl`) — and the pilot has been run on BFCL v3 `simple`. See the *Results* section and `docs/reference-run/bfcl_simple.json`.
 
 ---
 
@@ -54,17 +54,22 @@ Work items (all done):
 
 ## Results (BFCL v3 simple, 395 records, 3B base)
 
-Run with `python main.py bfcl`; the full per-sample report is `docs/reference-run/bfcl_eval.json`.
+Run with `python main.py bfcl`; the full per-sample report is `docs/reference-run/bfcl_simple.json`.
 
 | Metric | Base (zero-shot) | Base + JSON grammar |
 |---|---:|---:|
-| schema-valid | 97.2% [95–98] | 94.4% [92–96] |
-| tool accuracy | 98.2% [96–99] | 94.7% [92–96] |
-| argument accuracy | **81.5%** [77–85] | **37.0%** [32–42] |
+| schema-valid | 97.2% [95–98] | 93.9% [91–96] |
+| tool accuracy | 98.2% [96–99] | 94.2% [91–96] |
+| argument accuracy | **81.5%** [77–85] | **37.7%** [33–43] |
 
-**The conclusion does not generalize as stated — it generalizes as a warning.** The 3B base model already writes the contract on real schemas: a clear per-record prompt gets 97% of outputs schema-valid and 82% of arguments right with no training and no grammar. So grammar-constrained decoding has nothing to fix, and its constraints cost — argument accuracy drops to 37% (McNemar p ≈ 0). The failures are visible and consistent: sign flips (`base: 4` → `-4`) and the model's native `<tool_call>`/single-quote tokens leaking into string values, because the grammar forbids whitespace and forces a compact, enum-pinned path whose tokenization differs from the model's natural one.
+**The conclusion does not generalize as stated — it generalizes as a warning.** The 3B base model already writes the contract on real schemas: a clear per-record prompt gets 97% of outputs schema-valid and 82% of arguments right with no training and no grammar. So grammar-constrained decoding has nothing to fix, and its constraints cost — argument accuracy drops to 37% (McNemar p ≈ 0). The failures are visible and consistent: sign flips (`base: 4` → `-4`) and the model's native `<tool_call>`/single-quote tokens leaking into string values.
 
-Honest limits: this grammar is a minimal one (no whitespace, strings capped at 24 tokens, tool forced to the record's function name), so a production whitespace-allowing grammar would degrade *less* — the 21/395 outputs that hit the 200-token budget are largely this artifact. And `simple` is the easiest category; `multiple` (tool choice) is the natural next step. The direction is the finding: grammar buys the contract *only when the model lacks it*, and on real schemas the format was never missing.
+### Follow-up: whitespace and tool choice
+
+The natural suspicion was that the grammar's whitespace-free, compact path causes the degradation, so both documented follow-ups were done:
+
+* **Whitespace does not help.** Allowing structural whitespace (and capping a whitespace run, like strings and arrays are already capped) leaves argument accuracy at 37.7% and schema validity at 94%. The degradation is not a tokenization artifact — it is the model fighting an envelope its native format does not produce, which a structural constraint cannot fix. (Along the way this surfaced and fixed two real bugs: the whitespace mask matched Unicode spaces via `str.strip()` and desynchronized from the grammar, and an uncapped whitespace run let a model that had leaked prose loop to the token budget.)
+* **Tool choice survives the grammar, argument filling does not.** On `multiple` (195 records, 2–4 candidate functions, exercising the dependent-`parameters` node): tool accuracy 94.9% → 90.8% (p = 0.10), argument accuracy **75.4% → 35.9%** (p ≈ 0). The grammar preserves *which* function to call and still destroys *what* to pass it.
 
 ### Abstention (BFCL irrelevance, 237 records)
 
@@ -92,9 +97,6 @@ Multi-tool requests, nested parameters, ambiguous instructions, contradictions �
 
 ## Recommendation
 
-**Option A is done** (see *Results*). It settled the direction — on real schemas the 3B base already writes the contract and refuses when it should, so grammar-constrained decoding has nothing to fix and its constraints cost (82% → 37% on arguments, and no abstention gain) — while leaving the synthetic task intact as the controlled experiment.
+**Option A is done, including both follow-ups** (see *Results*). On real schemas the 3B base already writes the contract and refuses when it should; grammar-constrained decoding adds nothing and its constraints cost — on arguments (82% → 37%, and 75% → 36% on tool choice), on abstention (no gain), and none of it is a whitespace artifact. The synthetic task stays intact as the controlled experiment it was designed to be.
 
-The remaining gap, if this is worth pursuing, is the one the results keep pointing at:
-
-1. **Allow whitespace in the grammar.** The largest suspected artifact is the compact, whitespace-free path; a production grammar allows `{ "tool": ... }` spacing and would degrade less. If the degradation survives whitespace, "grammar hurts on real data" is robust.
-2. **Run `multiple`** (2–4 candidate functions per record) to exercise the dependent-`parameters` node on real data, and to test tool *choice* rather than argument filling.
+Where this leaves the project: the grammar's synthetic wins were a property of a weak base model, not of constrained decoding in general. The honest, useful conclusion is **"grammar-constrained decoding is a fix for missing format — and format is only missing when the prompt or the base model is weak."** The natural next question, if the pilot is extended, is no longer about the grammar but about the prompt: how much of the 3B base model's 82% is carried by the per-record system prompt, and whether a *trained* adapter on real schemas buys back the decisions the grammar cannot.
