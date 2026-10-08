@@ -209,7 +209,7 @@ What it shows:
 * **Grammar-constrained decoding matches LoRA's schema validity exactly** on the holdout — 75 of 75 samples valid for both, no discordant pair (McNemar p = 1.0) — and lifts the base model from 0% to 89% tool accuracy and 43% exact match, with no training at all.
 * What remains is squarely task error: the grammar variant's holdout failures are 8 wrong tools, 11 omitted defaults and 24 wrong parameter values. It never fails on format.
 * On `challenge_abstain` it is the **best** variant (100%, against LoRA's 95%): once the envelope is guaranteed, the base model abstains correctly on kinds of request it never saw in training. LoRA's two misses there are parameter/format slips, not failures to abstain.
-* The two fixes are complementary — grammar buys the contract, training buys the decisions — and few-shot prompting sits between them (68% exact match) at 985 prompt tokens per request against 666.
+* The two fixes are complementary — grammar buys the contract, training buys the decisions — and few-shot prompting sits between them (68% exact match) at 985 prompt tokens per request against 666. (That sentence is about the 3B model; the next section shows it needs a size qualifier.)
 
 The 0.5B smoke test this section used to quote (`base` 0/8 schema-valid vs `grammar` 8/8, paired p = 0.008) showed the same mechanism more cheaply; the 3B numbers above are the ones to cite.
 
@@ -244,6 +244,24 @@ The comparison is paired per record and tested with an exact **sign test** (not 
 | LoRA | 1.215 | **−0.609** | 7 / 17 | 0.064 |
 
 There is **no detectable forgetting**: the (non-significant) direction of the effect is that the adapter got *better* at ordinary requests. That is plausible for LoRA on a narrow task — the base weights never move, and practice at producing strict structured output helps general instruction-following — but read it as "not damaged on these 24 requests", never as "general ability preserved". The honest reading is asymmetric: a 24-record synthetic set can show that general ability was **not obviously destroyed**; it can never show that it was preserved.
+
+### Does scale close the gap?
+
+The 3B table leaves open whether the story is specific to one model size. Repeating the prompting-only variants (base, few-shot, grammar — no training) on the cached 14B model:
+
+| Set | 3B base | 14B base | 14B few-shot | 14B + grammar | 3B LoRA |
+|---|---:|---:|---:|---:|---:|
+| `test` | 0% | 65% [54–75] | 92% [84–96] | 57% [46–68] | 100% |
+| `challenge_abstain` | 0% | 0% | 100% | 100% | 95% |
+| `challenge_defaults` | 0% | 98% | 100% | 50% | 100% |
+| `challenge_entities` | 0% | 93% | 100% | 50% | 75% |
+
+Two things fall out of it, and the second is the important one:
+
+* **Scale buys the format for free.** The 14B base model reads the system prompt and already produces the tool-call envelope on the holdout — 77% schema-valid, 65% exact match — where the 3B base scores 0%. Few-shot 14B reaches 92%, within the noise of the 3B LoRA's 100%, with no training and no adapter.
+* **Constrained decoding helps exactly where the format fails, and costs exactly where it doesn't.** On `challenge_abstain`, where the base models have no example of the envelope, the grammar lifts both 3B and 14B to 100%. But on the sets the 14B already handles — `test`, `defaults`, `entities` — the grammar *lowers* it (65% → 57%, 98% → 50%, 93% → 50%). The grammar guarantees validity, not completeness: it allows omitting optional parameters, and once it changes the decode path the 14B model starts leaving them out (`omitted_default` failures go from 1 to 14). A model that already writes the contract does not need it forced, and the forcing has a cost.
+
+So the earlier sentence needs a qualifier: grammar buys the contract *when the model does not already have it*; training buys the decisions at every size. Full per-size numbers are regenerable from [`docs/reference-run/capacity.json`](docs/reference-run/capacity.json) (`scripts/export_capacity.py`).
 
 ## Teaching tools
 
