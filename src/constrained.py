@@ -440,13 +440,20 @@ class GrammarProcessor:
         candidates = [token_id for text in texts for token_id in self._text_index.get(text, ())]
         return [token_id for token_id in candidates if self.grammar.accepts(self.token_text[token_id])]
 
+    def _state_signature(self, state):
+        """A hashable key that uniquely identifies the grammar state for mask caching.
+
+        Subclasses that use a different state shape override this; the tool-call grammar
+        keys on its flat fields, while a frame-stack grammar keys on `frames`.
+        """
+        return (state.mode, state.depth, state.tool, state.keys, state.key, state.text,
+                state.letters, state.array_had, state.after_comma, state.array_count)
+
     def allowed_token_ids(self):
         """Token ids the grammar can accept from its current state (cached per state)."""
         state = self.grammar.state
-        signature = (state.mode, state.depth, state.tool, state.keys, state.key, state.text,
-                     state.letters, state.array_had, state.after_comma, self.grammar.complete,
-                     self.string_run >= self.max_string_tokens,
-                     state.array_count >= self.max_array_items)
+        signature = (self._state_signature(state), self.grammar.complete,
+                     self.string_run >= self.max_string_tokens)
         if signature in self._mask_cache:
             return self._mask_cache[signature]
         mode = state.mode
@@ -502,11 +509,8 @@ class GrammarProcessor:
 
     def mask(self):
         """Additive logits mask: 0 for allowed tokens, -inf for everything else."""
-        state = self.grammar.state
-        signature = ("mask", state.mode, state.depth, state.tool, state.keys, state.key, state.text,
-                     state.letters, state.array_had, state.after_comma, self.grammar.complete,
-                     self.string_run >= self.max_string_tokens,
-                     state.array_count >= self.max_array_items)
+        signature = ("mask", self._state_signature(self.grammar.state), self.grammar.complete,
+                     self.string_run >= self.max_string_tokens)
         if signature not in self._mask_cache:
             array = np.full(self.mask_size, -np.inf, dtype=np.float32)
             for token_id in self.allowed_token_ids():

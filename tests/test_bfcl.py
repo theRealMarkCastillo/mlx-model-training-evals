@@ -53,7 +53,7 @@ class BfclLoaderTests(unittest.TestCase):
             write_jsonl(questions, [QUESTION])
             write_jsonl(answers, [ANSWER])
             records, skipped = load_bfcl(questions, answers)
-        self.assertEqual(skipped, {"no_answer": 0, "unsupported_schema": 0, "multiple_calls": 0})
+        self.assertEqual(skipped, {"no_answer": 0, "unsupported_schema": 0, "multiple_calls": 0, "schema_mismatch": 0})
         record = records[0]
         self.assertEqual(record["expected"], {"tool": "calculate_triangle_area",
                                               "parameters": {"base": 10, "height": 5, "unit": "units"}})

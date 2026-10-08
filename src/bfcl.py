@@ -88,7 +88,12 @@ def build_system_prompt(functions):
 
 
 def canonical_arguments(acceptable_args):
-    """Pick one value per argument from its acceptable set; `""` means the argument is absent."""
+    """Pick one value per argument from its acceptable set; `""` means the argument is absent.
+
+    Flat (scalar) fields only; nested values go through `collapse_arguments`, which is
+    schema-aware because BFCL wraps *every* value — including nested dicts and lists — in
+    a list of acceptable alternatives.
+    """
     arguments = {}
     for name, acceptable in acceptable_args.items():
         values = [value for value in acceptable if value != ""]
@@ -97,9 +102,85 @@ def canonical_arguments(acceptable_args):
     return arguments
 
 
-def canonical_completion(function_name, acceptable_args):
-    return json.dumps({"tool": function_name, "parameters": canonical_arguments(acceptable_args)},
-                      separators=(",", ":"))
+def _collapse_field(schema, acceptable):
+    """Resolve one field: pick the first non-empty alternative, then collapse by schema."""
+    alternatives = [value for value in acceptable if value != ""]
+    if not alternatives:
+        return None
+    return _collapse_value(schema, alternatives[0])
+
+
+def _collapse_value(schema, value):
+    """Collapse a value that is *not* wrapped in an acceptable-set, by its schema type."""
+    kind = schema.get("type")
+    if kind in ("dict", "object"):
+        result = {}
+        for name, sub_schema in (schema.get("properties") or {}).items():
+            if name in value:
+                collapsed = _collapse_field(sub_schema, value[name])
+                if collapsed is not None:
+                    result[name] = collapsed
+        return result
+    if kind in ("array", "list"):
+        item_schema = schema.get("items")
+        return [_collapse_item(item_schema, element) if item_schema is not None else element
+                for element in value]
+    return value
+
+
+def _collapse_item(item_schema, element):
+    if item_schema.get("type") in ("dict", "object") and isinstance(element, dict):
+        return _collapse_value(item_schema, element)
+    if item_schema.get("type") in ("array", "list") and isinstance(element, list):
+        return _collapse_value(item_schema, element)
+    return element
+
+
+def _matches_type(value, schema):
+    kind = schema.get("type")
+    if kind in ("dict", "object"):
+        return isinstance(value, dict)
+    if kind in ("array", "list"):
+        return isinstance(value, list)
+    if kind == "string":
+        return isinstance(value, str)
+    if kind == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    if kind in ("float", "number"):
+        return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if kind == "boolean":
+        return isinstance(value, bool)
+    return True
+
+
+def collapse_arguments(parameters, acceptable_args):
+    """Schema-aware canonical arguments, or None if a value contradicts its schema.
+
+    Returns None when BFCL's own ground truth disagrees with the function schema (this
+    happens in the wild, e.g. a `string` field whose answer is a boolean), so the record
+    is skipped rather than scored against an impossible reference.
+    """
+    properties = (parameters or {}).get("properties") or {}
+    arguments = {}
+    for name, acceptable in acceptable_args.items():
+        schema = properties.get(name) or {}
+        value = _collapse_field(schema, acceptable)
+        if value is None:
+            continue
+        if not _matches_type(value, schema):
+            return None
+        arguments[name] = value
+    return arguments
+
+
+def canonical_completion(function_name, acceptable_args, parameters=None):
+    if parameters is not None:
+        arguments = collapse_arguments(parameters, acceptable_args)
+        if arguments is None:
+            raise ValueError("acceptable args contradict the function schema")
+    else:
+        arguments = canonical_arguments(acceptable_args)
+    return json.dumps({"tool": function_name, "parameters": arguments}, separators=(",", ":"), ensure_ascii=False)
 
 
 def load_bfcl(questions_path, answers_path=None, *, max_records=None):
@@ -113,7 +194,7 @@ def load_bfcl(questions_path, answers_path=None, *, max_records=None):
     answers = {}
     if answers_path:
         answers = {rec["id"]: rec for rec in _read_jsonl(Path(answers_path))}
-    records, skipped = [], {"no_answer": 0, "unsupported_schema": 0, "multiple_calls": 0}
+    records, skipped = [], {"no_answer": 0, "unsupported_schema": 0, "multiple_calls": 0, "schema_mismatch": 0}
     for record in _read_jsonl(questions_path):
         if max_records is not None and len(records) >= max_records:
             break
@@ -131,6 +212,11 @@ def load_bfcl(questions_path, answers_path=None, *, max_records=None):
             skipped["multiple_calls"] += 1
             continue
         (function_name, acceptable_args), = ground_truth[0].items()
+        parameters = functions[0].get("parameters") or {}
+        arguments = collapse_arguments(parameters, acceptable_args)
+        if arguments is None:
+            skipped["schema_mismatch"] = skipped.get("schema_mismatch", 0) + 1
+            continue
         question = " ".join(turn["content"] for turn in record["question"][0] if turn["role"] == "user")
         meta = {
             "tool": function_name, "bfcl_id": bfcl_id, "source": "bfcl",
@@ -140,12 +226,12 @@ def load_bfcl(questions_path, answers_path=None, *, max_records=None):
         records.append({
             "id": f"{Path(questions_path).stem}:{bfcl_id}",
             "prompt": question,
-            "expected": {"tool": function_name, "parameters": canonical_arguments(acceptable_args)},
+            "expected": {"tool": function_name, "parameters": arguments},
             "meta": meta,
             "messages": [
                 {"role": "system", "content": build_system_prompt(functions)},
                 {"role": "user", "content": question},
-                {"role": "assistant", "content": canonical_completion(function_name, acceptable_args)},
+                {"role": "assistant", "content": canonical_completion(function_name, acceptable_args, parameters)},
             ],
         })
     return records, skipped
