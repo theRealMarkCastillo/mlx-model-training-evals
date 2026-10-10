@@ -23,3 +23,9 @@ artifacts/toy/
 artifacts/historical/**/fused_model/
 artifacts/historical/qwen2.5-14b/
 artifacts/historical/qwen2.5-32b/
+
+# Keep machine-specific configuration and generated local artifacts out of Git.
+/.agents/*.json
+/.claude/*.json
+/.codex/*.json
+/.entire/*.json

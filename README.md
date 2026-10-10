@@ -455,3 +455,16 @@ uv run ruff check .                         # lint config lives in pyproject.tom
 * Greedy decoding is the default and what the reference numbers use. `--temperature` samples and `--repeats k` reports pass@k, so the stochastic cost of structured output and the value of retrying are both measurable; what is still missing is a study of *which* records retrying fixes (the per-record data is in `eval_results.json`, the analysis is not written).
 * The grammar variant of the synthetic eval is specialized to this envelope, not a general JSON-Schema compiler: whitespace outside strings, escapes inside them, and strings/arrays longer than the caps are excluded by construction. It answers "would valid JSON have been enough?" for this task, which is the question the repo is about. (`src/schema_grammar.py`, used by the BFCL pilot, generalizes this — whitespace, nested objects, typed arrays — but is not wired into the synthetic eval.)
 * The constrained-decoding numbers come from one seed on the full evaluation sets. The mechanism (format failures vanish, task errors remain) is robust; the exact percentages in that table are point estimates with the intervals shown.
+
+## Local configuration and generated files
+
+The following files are local-only and ignored by Git:
+
+- `.agents/hooks.json`
+- `.claude/settings.json`
+- `.codex/hooks.json`
+- `.entire/settings.json`
+
+Before pulling the commit that untracks them, back up any configured copies
+outside the checkout. Git may remove the formerly tracked files during the
+update; restore your copies afterward. Do not force-add them.
