@@ -1,0 +1,55 @@
+got this errors with "NaN" in the values:  markcastillo@mac-mini mlx-model-training-evals % uv run python main.py train --preset 72b
+╭───────────────────────────────────────────────────────────────────────────────╮
+│ MLX LoRA training  mlx-community/Qwen2.5-72B-Instruct-4bit                    │
+│ rank 8 · scale 16.0 · lr 0.0001 · batch 1 · iters 200 · layers 4 · Metal True │
+╰───────────────────────────────────────────────────────────────────────────────╯
+Downloading bytes:                                                                                                    |  0.00B            Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.  
+Fetching 16 files: 100%|██████████████████████████████████████████████████████████████████████████████████| 16/16 [10:17<00:00, 38.58s/it]
+Download complete: ███████████████████████████████████████████████████████████████████████████████████████████████████| 40.9GB, 33.3MB/s  
+Reconstruction complete: 100%|███████████████████████████████████████████████████████████████████████████████| 40.9GB / 40.9GB,  822MB/s  
+Training...
+╭─ mlx_lm.lora ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╮
+│    model                                                                                                                                │
+│  /Users/markcastillo/.cache/huggingface/hub/models--mlx-community--Qwen2.5-72B-Instruct-4bit/snapshots/36a74b07390031bb18c9f12fb7c0669  │
+│  9bc6273c4                                                                                                                              │
+│    type            lora · 4 layers · rank 8                                                                                             │
+│    dataset         /Users/markcastillo/git/mlx-model-training-evals/data                                                                │
+│    optimizer       adamw · lr 1.0e-04                                                                                                   │
+│    batch · iters   1 · 200                                                                                                              │
+│    max seq         1,024                                                                                                                │
+╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+Trainable parameters: 0.007% (5.263M/72706.204M)
+  iter   train_loss     tok/s     tokens
+     1    val 1.210    857.22s
+    10    0.303 ▼        2      0.3k
+    20      nan ▲        2      0.7k
+    25    val   nan    818.74s
+    30      nan ▲        2      1.1k
+    40      nan ▲        2      1.5k
+    50    val   nan    819.08s
+    50      nan ▲        2      1.9k
+  save  0000050_adapters.safetensors
+    60      nan ▲        2      2.2k
+    70      nan ▲        2      2.6k
+    75    val   nan    821.28s
+    80      nan ▲        2      2.9k
+    90      nan ▲        2      3.3k
+   100    val   nan    839.09s
+   100      nan ▲        2      3.7k
+  save  0000100_adapters.safetensors
+   110      nan ▲        2      4.0k
+   120      nan ▲        2      4.4k
+   125    val   nan    831.58s
+   130      nan ▲        2      4.8k
+   140      nan ▲        2      5.1k
+   150    val   nan    846.21s
+   150      nan ▲        1      5.4k
+  save  0000150_adapters.safetensors
+   160      nan ▲        2      5.8k
+   170      nan ▲        2      6.2k
+train ██████████████████████████░░░░  87% ·   174/200
+val   █████████████████▍░░░░░░░░░░░░  58% ·    29/50
+
+---
+
+git commit and push
