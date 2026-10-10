@@ -14,6 +14,7 @@ class ModelPreset:
     batch_size: int
     num_layers: int
     grad_checkpoint: bool
+    learning_rate: float | None = None
 
     @property
     def model(self) -> str:
@@ -33,20 +34,23 @@ class ModelPreset:
 
     def overrides(self) -> dict:
         """Merged over config/base.yaml to form this preset's training config."""
-        return {
+        cfg = {
             "model": self.model, "batch_size": self.batch_size, "num_layers": self.num_layers,
             "grad_checkpoint": self.grad_checkpoint, "adapter_path": self.adapter_path,
         }
+        if self.learning_rate is not None:
+            cfg["learning_rate"] = self.learning_rate
+        return cfg
 
 
 PRESETS = {
-    size: ModelPreset(size, batch, layers, checkpoint)
-    for size, batch, layers, checkpoint in (
-        ("3b", 4, 16, False),
-        ("7b", 2, 16, True),
-        ("14b", 1, 16, True),
-        ("32b", 1, 8, True),
-        ("72b", 1, 4, True),
+    size: ModelPreset(size, batch, layers, checkpoint, lr)
+    for size, batch, layers, checkpoint, lr in (
+        ("3b", 4, 16, False, None),
+        ("7b", 2, 16, True, None),
+        ("14b", 1, 16, True, None),
+        ("32b", 1, 8, True, None),
+        ("72b", 1, 4, True, 1e-5),
     )
 }
 DEFAULT_PRESET = "3b"

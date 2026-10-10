@@ -144,15 +144,15 @@ MLX applies `scale` directly; it is not `alpha / r` as in some other libraries. 
 
 All shared settings live in `config/base.yaml`. A preset changes only what must scale with model size:
 
-| Preset | Model (4-bit) | Batch | LoRA layers | Grad checkpointing |
-|---|---|---:|---:|---|
-| `3b` | Qwen2.5-3B-Instruct | 4 | 16 | off |
-| `7b` | Qwen2.5-7B-Instruct | 2 | 16 | on |
-| `14b` | Qwen2.5-14B-Instruct | 1 | 16 | on |
-| `32b` | Qwen2.5-32B-Instruct | 1 | 8 | on |
-| `72b` | Qwen2.5-72B-Instruct | 1 | 4 | on |
+| Preset | Model (4-bit) | Batch | LoRA layers | Grad checkpointing | Learning rate |
+|---|---|---:|---:|---|---|
+| `3b` | Qwen2.5-3B-Instruct | 4 | 16 | off | 1e-4 |
+| `7b` | Qwen2.5-7B-Instruct | 2 | 16 | on | 1e-4 |
+| `14b` | Qwen2.5-14B-Instruct | 1 | 16 | on | 1e-4 |
+| `32b` | Qwen2.5-32B-Instruct | 1 | 8 | on | 1e-4 |
+| `72b` | Qwen2.5-72B-Instruct | 1 | 4 | on | 1e-5 |
 
-These are starting points, not guaranteed memory fits. Equal `iters` with different batch sizes means different numbers of examples seen. The training summary reports examples seen, epochs, the best validation iteration, LoRA parameter count, and peak Metal memory, and warns if validation loss rises after its minimum. The config is validated by a Pydantic model (`src/config.py`) before anything downloads.
+These are starting points, not guaranteed memory fits. `72b` drops the learning rate to `1e-5` (overriding `config/base.yaml`'s `1e-4`) to prevent float16 residual overflow in its deep 80-layer architecture. Equal `iters` with different batch sizes means different numbers of examples seen. The training summary reports examples seen, epochs, the best validation iteration, LoRA parameter count, and peak Metal memory, and warns if validation loss rises after its minimum. The config is validated by a Pydantic model (`src/config.py`) before anything downloads.
 
 ## Evaluation
 

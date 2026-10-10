@@ -1,7 +1,7 @@
 # Base MLX LoRA configuration shared by every preset.
 #
 # A preset (src/models.py) overrides only what must change with model size:
-# model, batch_size, num_layers, grad_checkpoint, and adapter_path.
+# model, batch_size, num_layers, grad_checkpoint, adapter_path, and learning_rate (72b).
 # Everything below stays fixed so presets remain comparable.
 #
 # This file is also a complete standalone config for the 3B model:

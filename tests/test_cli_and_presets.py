@@ -31,6 +31,10 @@ class PresetTests(unittest.TestCase):
         config = load_training_config(preset='7b', overrides={'rank': 4, 'iters': 3})
         self.assertEqual((config['lora_parameters']['rank'], config['iters']), (4, 3))
 
+    def test_72b_preset_uses_reduced_learning_rate(self):
+        self.assertEqual(load_training_config(preset='72b')['learning_rate'], 1e-5)
+        self.assertEqual(load_training_config(preset='3b')['learning_rate'], 1e-4)
+
     def test_invalid_overrides_fail(self):
         for bad in ({'iters': 0}, {'rank': True}, {'mask_prompt': False}, {'bogus': 1},
                     {'num_layers': 0}, {'dropout': 1.0}, {'fine_tune_type': 'dora'}):

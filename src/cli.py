@@ -25,10 +25,11 @@ def _model_selection(parser):
 
 def cmd_models(args):
     table = Table(title="Qwen2.5 Instruct 4-bit presets (overrides applied to config/base.yaml)")
-    for column in ("Preset", "Model", "Batch", "LoRA layers", "Checkpointing", "Artifacts"):
+    for column in ("Preset", "Model", "Batch", "LoRA layers", "Checkpointing", "LR", "Artifacts"):
         table.add_column(column)
     for size, p in PRESETS.items():
-        table.add_row(size, p.model, str(p.batch_size), str(p.num_layers), str(p.grad_checkpoint),
+        lr_str = f"{p.learning_rate:.0e}".replace("-0", "-") if p.learning_rate is not None else "1e-4"
+        table.add_row(size, p.model, str(p.batch_size), str(p.num_layers), str(p.grad_checkpoint), lr_str,
                       str(p.output_dir.relative_to(REPO_ROOT)))
     console.print(table)
     console.print("Larger presets trade speed for memory. Measure peak memory with a short run first (--iters 10).")
