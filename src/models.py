@@ -55,6 +55,88 @@ PRESETS = {
 }
 DEFAULT_PRESET = "3b"
 
+RAM_TIERS = ("16gb", "32gb", "64gb", "96gb")
+
+MIN_RAM_REQUIRED = {
+    "3b": 8,
+    "7b": 16,
+    "14b": 24,
+    "32b": 36,
+    "72b": 64,
+}
+
+# Optimal (batch_size, num_layers, grad_checkpoint) per (preset, ram_tier).
+RAM_PROFILES: dict[str, dict[str, dict[str, int | bool]]] = {
+    "16gb": {
+        "3b": {"batch_size": 4, "num_layers": 16, "grad_checkpoint": True},
+        "7b": {"batch_size": 1, "num_layers": 8, "grad_checkpoint": True},
+    },
+    "32gb": {
+        "3b": {"batch_size": 4, "num_layers": 16, "grad_checkpoint": False},
+        "7b": {"batch_size": 2, "num_layers": 16, "grad_checkpoint": True},
+        "14b": {"batch_size": 1, "num_layers": 16, "grad_checkpoint": True},
+        "32b": {"batch_size": 1, "num_layers": 8, "grad_checkpoint": True},
+    },
+    "64gb": {
+        "3b": {"batch_size": 8, "num_layers": -1, "grad_checkpoint": False},
+        "7b": {"batch_size": 4, "num_layers": 28, "grad_checkpoint": False},
+        "14b": {"batch_size": 2, "num_layers": 24, "grad_checkpoint": True},
+        "32b": {"batch_size": 1, "num_layers": 16, "grad_checkpoint": True},
+        "72b": {"batch_size": 1, "num_layers": 4, "grad_checkpoint": True},
+    },
+    "96gb": {
+        "3b": {"batch_size": 8, "num_layers": -1, "grad_checkpoint": False},
+        "7b": {"batch_size": 4, "num_layers": -1, "grad_checkpoint": False},
+        "14b": {"batch_size": 2, "num_layers": 32, "grad_checkpoint": True},
+        "32b": {"batch_size": 1, "num_layers": 32, "grad_checkpoint": True},
+        "72b": {"batch_size": 1, "num_layers": 8, "grad_checkpoint": True},
+    },
+}
+
+
+def get_system_ram_gb() -> int:
+    """Return total physical system RAM in GiB (e.g. 16, 32, 64, 96, 128)."""
+    try:
+        import os
+        return int(round(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES") / (1024**3)))
+    except Exception:
+        return 32
+
+
+def ram_to_tier(ram_gb: int) -> str:
+    """Map physical RAM to the closest supported tier."""
+    if ram_gb < 24:
+        return "16gb"
+    if ram_gb < 54:
+        return "32gb"
+    if ram_gb < 80:
+        return "64gb"
+    return "96gb"
+
+
+def optimal_overrides(preset: str, tier: str | None = None) -> dict[str, int | bool]:
+    """Return optimal (batch_size, num_layers, grad_checkpoint) for preset on the requested or detected RAM tier."""
+    preset = preset.lower()
+    if preset not in PRESETS:
+        raise ValueError(f"Unknown preset {preset!r}. Expected one of {list(PRESETS)}")
+    if tier is None or tier == "auto":
+        tier = ram_to_tier(get_system_ram_gb())
+    else:
+        tier = tier.lower()
+        if not tier.endswith("gb"):
+            tier = f"{tier}gb"
+        if tier not in RAM_PROFILES:
+            raise ValueError(f"Unknown RAM tier {tier!r}. Expected one of {list(RAM_PROFILES)}")
+
+    tier_config = RAM_PROFILES[tier].get(preset)
+    if tier_config is None:
+        min_ram = MIN_RAM_REQUIRED.get(preset, 32)
+        raise ValueError(
+            f"Preset '{preset}' requires at least {min_ram}GB RAM, but tier '{tier}' was selected. "
+            f"Use a larger RAM tier or a smaller preset."
+        )
+    return dict(tier_config)
+
 
 def add_preset_argument(parser):
     parser.add_argument("--preset", choices=PRESETS, help=f"Qwen2.5 Instruct 4-bit model size (default: {DEFAULT_PRESET})")

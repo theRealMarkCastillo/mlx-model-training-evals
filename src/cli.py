@@ -24,7 +24,14 @@ def _model_selection(parser):
 
 
 def cmd_models(args):
-    table = Table(title="Qwen2.5 Instruct 4-bit presets (overrides applied to config/base.yaml)")
+    from src.models import RAM_PROFILES, get_system_ram_gb, ram_to_tier
+
+    ram_gb = get_system_ram_gb()
+    tier = getattr(args, "ram", None) or ram_to_tier(ram_gb)
+    if tier == "auto":
+        tier = ram_to_tier(ram_gb)
+
+    table = Table(title=f"Qwen2.5 Instruct 4-bit presets (Base defaults · Detected system RAM: {ram_gb} GB)")
     for column in ("Preset", "Model", "Batch", "LoRA layers", "Checkpointing", "LR", "Artifacts"):
         table.add_column(column)
     for size, p in PRESETS.items():
@@ -32,7 +39,21 @@ def cmd_models(args):
         table.add_row(size, p.model, str(p.batch_size), str(p.num_layers), str(p.grad_checkpoint), lr_str,
                       str(p.output_dir.relative_to(REPO_ROOT)))
     console.print(table)
-    console.print("Larger presets trade speed for memory. Measure peak memory with a short run first (--iters 10).")
+
+    opt_table = Table(title=f"Optimal parameters for {tier.upper()} tier (use `main.py train --optimal` to apply)")
+    for column in ("Preset", "Optimal Batch", "Optimal LoRA layers", "Checkpointing", "Fit Status"):
+        opt_table.add_column(column)
+    for size in PRESETS:
+        opt = RAM_PROFILES[tier].get(size)
+        if opt:
+            opt_table.add_row(
+                size, str(opt["batch_size"]), str(opt["num_layers"]), str(opt["grad_checkpoint"]),
+                "[green]Fits in RAM[/green]",
+            )
+        else:
+            opt_table.add_row(size, "-", "-", "-", f"[yellow]Exceeds {tier} RAM[/yellow]")
+    console.print(opt_table)
+    console.print("Pass `--optimal` to `main.py train` to use the tuned parameters for your hardware.")
 
 
 def cmd_prepare(args):
@@ -44,9 +65,15 @@ def cmd_prepare(args):
 
 def cmd_train(args):
     from src.train import run_training
-    overrides = {k: v for k, v in (("rank", args.rank), ("learning_rate", args.learning_rate),
-                                   ("num_layers", args.num_layers), ("seed", args.seed),
-                                   ("batch_size", args.batch_size), ("grad_checkpoint", args.grad_checkpoint)) if v is not None}
+    overrides = {}
+    if getattr(args, "optimal", False) or getattr(args, "ram", None):
+        from src.models import optimal_overrides
+        tier = args.ram if getattr(args, "ram", None) and args.ram != "auto" else None
+        overrides.update(optimal_overrides(args.preset or DEFAULT_PRESET, tier))
+    cli_overrides = {k: v for k, v in (("rank", args.rank), ("learning_rate", args.learning_rate),
+                                       ("num_layers", args.num_layers), ("seed", args.seed),
+                                       ("batch_size", args.batch_size), ("grad_checkpoint", args.grad_checkpoint)) if v is not None}
+    overrides.update(cli_overrides)
     run_training(config_path=args.config, iters_override=args.iters, preset=args.preset,
                  output_dir=args.output_dir, overrides=overrides, validate=not args.no_validate)
 
@@ -182,7 +209,10 @@ def build_parser():
     parser = argparse.ArgumentParser(prog="main.py", description="Local LoRA training and tool-call evaluation with Apple MLX")
     sub = parser.add_subparsers(dest="command", metavar="<command>")
 
-    sub.add_parser("models", help="List model presets").set_defaults(func=cmd_models)
+    m = sub.add_parser("models", help="List model presets and optimal RAM configurations")
+    m.add_argument("--ram", choices=["16gb", "32gb", "64gb", "96gb", "auto"], default=None,
+                   help="Show optimal parameters for a specific RAM tier (16gb, 32gb, 64gb, 96gb)")
+    m.set_defaults(func=cmd_models)
     sub.add_parser("prepare", help="Generate dataset splits and challenge sets").set_defaults(func=cmd_prepare)
 
     p = sub.add_parser("train", help="Train a LoRA adapter")
@@ -201,6 +231,10 @@ def build_parser():
                                   help="Enable gradient checkpointing (trade compute for memory)")
     checkpoint_group.add_argument("--no-checkpoint", dest="grad_checkpoint", action="store_false", default=None,
                                   help="Disable gradient checkpointing (faster training on high-memory Macs)")
+    p.add_argument("--optimal", action="store_true",
+                   help="Auto-tune batch size, layers, and checkpointing for detected system RAM")
+    p.add_argument("--ram", choices=["16gb", "32gb", "64gb", "96gb", "auto"], default=None,
+                   help="Tune parameters for a specific RAM tier (16gb, 32gb, 64gb, 96gb, auto)")
     p.add_argument("--no-validate", action="store_true",
                    help="Skip the 5-tool schema pre-flight (for non-synthetic data, e.g. the BFCL split)")
     p.set_defaults(func=cmd_train)

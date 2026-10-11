@@ -116,11 +116,12 @@ Few-shot prompting pays prefill cost on *every* request: the reference run's few
 `mx.get_peak_memory()` reports the high-water mark of the Metal allocator during a run. It is the number that decides whether a preset fits on your Mac — and it includes activations, gradients, and optimizer state, not just weights. Gradient checkpointing (`grad_checkpoint: true` on larger presets) trades recomputation for memory.
 
 - **See it:** the "Peak Metal memory" line in every training summary; `main.py benchmark` reports the same for inference.
-- **The GPU working-set limit:** macOS gives Metal a recommended working set below physical RAM. A 96 GB M2 Max reports `max_recommended_working_set_size` ≈ 77.8 GiB (`python -c "import mlx.core as mx; print(mx.device_info())"`). Allocations beyond that are allowed but get slower, and can swap. The 4-bit 72B weights alone are ≈ 40 GB, so measure a short 72B run before a long one. If the peak gets close to the limit, you can raise the wired ceiling (resets at reboot):
+- **The GPU working-set limit:** macOS gives Metal a recommended working set below physical RAM. A 96 GB M2 Max reports `max_recommended_working_set_size` ≈ 77.8 GiB (`python -c "import mlx.core as mx; print(mx.device_info())"`). On a 96 GB M2 Max, the **72B preset** (`Qwen2.5-72B-Instruct-4bit`, batch 1, 4 layers, checkpointing enabled) peaked at **40,839 MB (≈ 40.8 GB)** — comfortably under the working set with ~37 GB to spare. If scaling up layers or batch size pushes close to the limit, raise the wired ceiling (resets at reboot):
   ```bash
   sudo sysctl iogpu.wired_limit_mb=86000   # leaves ~10 GB for macOS on a 96 GB Mac
   ```
-- **Headroom on smaller presets:** the presets are sized for smaller Macs. With more memory you can try `--no-checkpoint` (no activation recomputation, so faster), a larger `--batch-size`, or `--num-layers -1` (all layers). A larger batch changes how many examples each run sees, so results are not comparable to the reference run. Read the peak-memory line rather than assuming a speedup.
+- **Auto-tuning across hardware sizes:** Pass `--optimal` to `main.py train` to automatically tune batch size, layer count, and gradient checkpointing for your detected physical RAM (e.g. 16gb, 32gb, 64gb, 96gb tiers), or inspect tiers with `main.py models --ram <tier>`.
+- **Headroom on smaller presets:** With more memory you can try `--no-checkpoint` (no activation recomputation, so faster), a larger `--batch-size`, or `--num-layers -1` (all layers). A larger batch changes how many examples each run sees, so results are not comparable to the reference run.
 - **Catch:** before trying a larger preset, run `main.py train --preset 14b --iters 10` and read that line. macOS can also abort long GPU jobs when the display or another app needs the GPU (`[METAL] Command buffer execution failed` in Troubleshooting).
 
 ## Fusion

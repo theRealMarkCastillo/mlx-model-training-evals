@@ -128,6 +128,21 @@ class CliTests(unittest.TestCase):
             cli.main(['train', '--preset', '3b', '--checkpoint'])
         self.assertEqual(train.call_args.kwargs['overrides'], {'grad_checkpoint': True})
 
+    def test_train_optimal_and_ram_flags_reach_overrides(self):
+        with patch('src.train.run_training') as train:
+            cli.main(['train', '--preset', '7b', '--ram', '64gb'])
+        self.assertEqual(train.call_args.kwargs['overrides'], {'batch_size': 4, 'num_layers': 28, 'grad_checkpoint': False})
+
+        with patch('src.train.run_training') as train, patch('src.models.get_system_ram_gb', return_value=96):
+            cli.main(['train', '--preset', '32b', '--optimal'])
+        self.assertEqual(train.call_args.kwargs['overrides'], {'batch_size': 1, 'num_layers': 32, 'grad_checkpoint': True})
+
+    def test_preset_exceeding_ram_tier_raises_error(self):
+        from src.models import optimal_overrides
+        self.assertEqual(cli.main(['train', '--preset', '72b', '--ram', '16gb']), 2)
+        with self.assertRaisesRegex(ValueError, "requires at least 64GB"):
+            optimal_overrides('72b', '16gb')
+
     def test_inspect_and_show_data_dispatch(self):
         with patch('src.inspect.run_inspection') as inspect:
             cli.main(['inspect', '--split', 'valid', '--index', '2', '--variant', 'base', '--top-k', '3'])
