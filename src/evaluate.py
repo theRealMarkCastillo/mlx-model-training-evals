@@ -14,6 +14,7 @@ much is task skill? Constrained decoding cannot produce invalid JSON, so whateve
 it still gets wrong is a genuine tool-choice or parameter error.
 """
 
+import gc
 import math
 from pathlib import Path
 
@@ -393,7 +394,9 @@ def run_comprehensive_evaluation(
                                                      temperature=temperature, repeats=repeats)
                     datasets[name][variant] = {**metrics, **intrinsic}
             finally:
-                del model
+                # Drop every reference before the next load so two large models never coexist.
+                del model, tokenizer
+                gc.collect()
                 mx.clear_cache()
         report = {"model": model_name, "adapter": adapter_path, "run_dir": str(run_dir), "run_id": manifest["run_id"],
                   "variants": [name for name, _, _, _ in plan], "constrained": constrained,

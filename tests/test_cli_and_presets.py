@@ -119,6 +119,15 @@ class CliTests(unittest.TestCase):
             cli.main(['train', '--preset', '3b', '--seed', '7'])
         self.assertEqual(train.call_args.kwargs['overrides'], {'seed': 7})
 
+    def test_train_batch_size_and_checkpoint_flags_reach_overrides(self):
+        with patch('src.train.run_training') as train:
+            cli.main(['train', '--preset', '7b', '--batch-size', '8', '--no-checkpoint'])
+        self.assertEqual(train.call_args.kwargs['overrides'], {'batch_size': 8, 'grad_checkpoint': False})
+
+        with patch('src.train.run_training') as train:
+            cli.main(['train', '--preset', '3b', '--checkpoint'])
+        self.assertEqual(train.call_args.kwargs['overrides'], {'grad_checkpoint': True})
+
     def test_inspect_and_show_data_dispatch(self):
         with patch('src.inspect.run_inspection') as inspect:
             cli.main(['inspect', '--split', 'valid', '--index', '2', '--variant', 'base', '--top-k', '3'])

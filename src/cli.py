@@ -45,7 +45,8 @@ def cmd_prepare(args):
 def cmd_train(args):
     from src.train import run_training
     overrides = {k: v for k, v in (("rank", args.rank), ("learning_rate", args.learning_rate),
-                                   ("num_layers", args.num_layers), ("seed", args.seed)) if v is not None}
+                                   ("num_layers", args.num_layers), ("seed", args.seed),
+                                   ("batch_size", args.batch_size), ("grad_checkpoint", args.grad_checkpoint)) if v is not None}
     run_training(config_path=args.config, iters_override=args.iters, preset=args.preset,
                  output_dir=args.output_dir, overrides=overrides, validate=not args.no_validate)
 
@@ -190,10 +191,16 @@ def build_parser():
     add_preset_argument(group)
     p.add_argument("--output-dir", help="Report root")
     p.add_argument("--iters", type=positive_int)
+    p.add_argument("--batch-size", type=positive_int, help="Override training batch size")
     p.add_argument("--rank", type=positive_int, help="Override LoRA rank")
     p.add_argument("--learning-rate", type=float)
     p.add_argument("--num-layers", type=int)
     p.add_argument("--seed", type=int, help="Random seed for batch order and LoRA init (default: base config)")
+    checkpoint_group = p.add_mutually_exclusive_group()
+    checkpoint_group.add_argument("--checkpoint", dest="grad_checkpoint", action="store_true", default=None,
+                                  help="Enable gradient checkpointing (trade compute for memory)")
+    checkpoint_group.add_argument("--no-checkpoint", dest="grad_checkpoint", action="store_false", default=None,
+                                  help="Disable gradient checkpointing (faster training on high-memory Macs)")
     p.add_argument("--no-validate", action="store_true",
                    help="Skip the 5-tool schema pre-flight (for non-synthetic data, e.g. the BFCL split)")
     p.set_defaults(func=cmd_train)

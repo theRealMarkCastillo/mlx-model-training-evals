@@ -1,5 +1,6 @@
 """MLX LoRA training with loss telemetry, memory measurement, and run provenance."""
 
+import gc
 import time
 import types
 from pathlib import Path
@@ -152,6 +153,7 @@ def run_training(config_path=None, iters_override=None, *, preset=None, output_d
         callback.run_dir = run_dir
         callback.adapter_path = args.adapter_path
 
+        mx.clear_cache()
         mx.reset_peak_memory()
         start_time = time.perf_counter()
         model, tokenizer = lora.load(
@@ -218,4 +220,8 @@ def run_training(config_path=None, iters_override=None, *, preset=None, output_d
         write_json(configured_adapter / "latest.json", {
             "path": args.adapter_path, "model": requested_model, "run_id": manifest["run_id"],
         })
+        # `ablate` calls run_training repeatedly in one process; release this model before the next.
+        del model, tokenizer, train_set, valid_set
+        gc.collect()
+        mx.clear_cache()
     return callback

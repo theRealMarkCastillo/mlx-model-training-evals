@@ -131,6 +131,7 @@ No prompt appears in more than one file. Each record carries a `meta` field (too
 ```bash
 uv run python main.py train --preset 3b
 uv run python main.py train --preset 3b --iters 50 --rank 4      # quick overrides
+uv run python main.py train --preset 7b --batch-size 4 --no-checkpoint   # more memory: bigger batch, no recompute
 uv run python main.py train --config my_config.yaml              # standalone MLX-LM config
 ```
 
