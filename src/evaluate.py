@@ -378,26 +378,35 @@ def run_comprehensive_evaluation(
             manifest["fused_model"] = fused_identity
             plan.append(("fused", fused_source, None, False))
         datasets = {name: {} for name in samples}
-        for variant, source, adapter, use_grammar in plan:
-            console.print(f"[bold]Evaluating {LABELS.get(variant, variant)}[/bold]")
+        # base, fewshot and grammar differ only in prompt and decoding, not weights, so variants
+        # that need the same (source, adapter) share one load. At 72B that saves ~40 GB of reads
+        # per shared variant. Decoding only adds logits processors; it never modifies the model.
+        loads = {}
+        for entry in plan:
+            loads.setdefault((entry[1], entry[2]), []).append(entry)
+        for (source, adapter), entries in loads.items():
             model, tokenizer = mlx_lm.load(source, **({"adapter_path": adapter} if adapter else {}))
             try:
-                if temperature > 0:
-                    mx.random.seed(seed)  # same sampling draw for every variant
-                for name, group in samples.items():
-                    if variant == "fewshot":
-                        group = [{**s, "messages": fewshot_messages(s["messages"], demos)} for s in group]
-                    intrinsic = compute_perplexity(model, tokenizer, group)
-                    generate = constrained_generate if use_grammar else None
-                    metrics = run_deterministic_eval(model, tokenizer, group, max_tokens,
-                                                     desc=f"{variant}/{name}", generate=generate,
-                                                     temperature=temperature, repeats=repeats)
-                    datasets[name][variant] = {**metrics, **intrinsic}
+                for variant, _, _, use_grammar in entries:
+                    console.print(f"[bold]Evaluating {LABELS.get(variant, variant)}[/bold]")
+                    if temperature > 0:
+                        mx.random.seed(seed)  # same sampling draw for every variant
+                    for name, group in samples.items():
+                        if variant == "fewshot":
+                            group = [{**s, "messages": fewshot_messages(s["messages"], demos)} for s in group]
+                        intrinsic = compute_perplexity(model, tokenizer, group)
+                        generate = constrained_generate if use_grammar else None
+                        metrics = run_deterministic_eval(model, tokenizer, group, max_tokens,
+                                                         desc=f"{variant}/{name}", generate=generate,
+                                                         temperature=temperature, repeats=repeats)
+                        datasets[name][variant] = {**metrics, **intrinsic}
             finally:
                 # Drop every reference before the next load so two large models never coexist.
                 del model, tokenizer
                 gc.collect()
                 mx.clear_cache()
+        # Grouping can change execution order; tables and charts follow the plan order.
+        datasets = {name: {v: by_variant[v] for v, _, _, _ in plan} for name, by_variant in datasets.items()}
         report = {"model": model_name, "adapter": adapter_path, "run_dir": str(run_dir), "run_id": manifest["run_id"],
                   "variants": [name for name, _, _, _ in plan], "constrained": constrained,
                   "temperature": temperature, "seed": seed, "repeats": repeats, "datasets": datasets,

@@ -104,7 +104,7 @@ class EvaluationTests(unittest.TestCase):
             self.assertEqual(saved['variants'], ['base', 'fewshot', 'lora', 'fused'])
             self.assertEqual(set(saved['datasets']), {'test', 'challenge_entities', 'challenge_defaults', 'challenge_abstain'})
             self.assertEqual(len(saved['datasets']['test']['lora']['sample_results']), 10)
-            self.assertEqual(load.call_count, 4)
+            self.assertEqual(load.call_count, 3)   # base+fewshot share one load; lora and fused each need their own
             lengths = dict(seen_messages)
             self.assertEqual(lengths['base/test'], 3)
             self.assertEqual(lengths['fewshot/test'], 3 + 2 * 5)
@@ -157,6 +157,38 @@ class EvaluationTests(unittest.TestCase):
         unconstrained_variants = {variant for variant, is_constrained in used_generate if not is_constrained}
         self.assertEqual(constrained_variants, {'grammar'})
         self.assertEqual(unconstrained_variants, {'base'})
+
+    def test_variants_sharing_weights_share_one_load_and_keep_report_order(self):
+        """base, fewshot and grammar reuse one base load even with lora in between; order is unchanged."""
+        order = []
+
+        def fake_eval(model, tokenizer, samples, max_tokens, desc, generate=None, temperature=0.0, repeats=1):
+            if desc.endswith('/test'):
+                order.append(desc.split('/')[0])
+            results = []
+            for s in samples:
+                parsed = parse_and_validate(s['messages'][-1]['content'])
+                results.append({'id': s['id'], 'prompt': s['prompt'], 'expected': s['expected'], 'meta': s['meta'],
+                                'raw_output': '', 'output_tokens': 1, **parsed,
+                                **score_sample(s['expected'], s['normalized_expected'], parsed)})
+            return {**summarize(results), 'sample_results': results, 'avg_output_tokens': 1}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            adapter = Path(tmp) / 'adapter'
+            adapter.mkdir()
+            (adapter / 'adapter_config.json').write_text('{}')
+            (adapter / 'adapters.safetensors').write_bytes(b'weights')
+            with patch.object(evaluate, 'resolve_adapter_source', return_value=('base', {'revision': 'r'})), \
+                    patch.object(evaluate.mlx_lm, 'load', return_value=(object(), object())) as load, \
+                    patch.object(evaluate, 'compute_perplexity', return_value={'loss': 1., 'perplexity': math.e}), \
+                    patch.object(evaluate, 'run_deterministic_eval', side_effect=fake_eval):
+                report = evaluate.run_comprehensive_evaluation(adapter_path=str(adapter), output_dir=tmp,
+                                                               num_eval_samples=5, constrained=True, quiet=True)
+        self.assertEqual(load.call_count, 2)                       # one base load, one LoRA load
+        self.assertEqual(order, ['base', 'fewshot', 'grammar', 'lora'])  # executed grouped by weights
+        expected = ['base', 'fewshot', 'lora', 'grammar']
+        self.assertEqual(report['variants'], expected)
+        self.assertEqual(list(report['datasets']['test']), expected)  # reported in plan order
 
 
 class StreamingTests(unittest.TestCase):
