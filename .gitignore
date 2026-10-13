@@ -24,8 +24,25 @@ artifacts/historical/**/fused_model/
 artifacts/historical/qwen2.5-14b/
 artifacts/historical/qwen2.5-32b/
 
-# Keep machine-specific configuration and generated local artifacts out of Git.
-/.agents/*.json
-/.claude/*.json
-/.codex/*.json
-/.entire/*.json
+# Share only portable Entire settings/hooks; keep other agent state local.
+!/.agents/
+/.agents/*
+!/.agents/hooks.json
+!/.claude/
+/.claude/*
+!/.claude/settings.json
+!/.codex/
+/.codex/*
+!/.codex/hooks.json
+!/.opencode/
+/.opencode/*
+!/.opencode/plugins/
+/.opencode/plugins/*
+!/.opencode/plugins/entire.ts
+
+# Entire's nested ignore file excludes its runtime data and personal settings.
+!/.entire/
+/.entire/*
+!/.entire/.gitignore
+!/.entire/settings.json
+!/.entire/redactors/
