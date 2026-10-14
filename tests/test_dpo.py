@@ -2,6 +2,7 @@
 
 The DPO math is checked on a tiny stand-in language model, so no downloads are needed.
 """
+import json
 import math
 import unittest
 
@@ -16,6 +17,7 @@ from src.dpo import (
     build_mining_prompts,
     dpo_loss,
     freeze_all_but_lora,
+    indistribution_pairs,
     make_loss_fn,
     sequence_logprobs,
     split_pairs,
@@ -176,3 +178,21 @@ class CompareArgumentTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InDistributionPairTests(unittest.TestCase):
+    def test_pairs_swap_only_the_id_into_a_mining_format(self):
+        pairs = indistribution_pairs(12)
+        self.assertEqual(len(pairs), 12)
+        for pair in pairs:
+            chosen, rejected = json.loads(pair["chosen"]), json.loads(pair["rejected"])
+            self.assertTrue(chosen["parameters"]["deployment_id"].startswith("dep-"))
+            self.assertFalse(rejected["parameters"]["deployment_id"].startswith("dep-"))
+            chosen["parameters"].pop("deployment_id")
+            rejected["parameters"].pop("deployment_id")
+            self.assertEqual(chosen, rejected)
+
+    def test_prompts_are_disjoint_from_evaluation_sets(self):
+        seen = all_evaluation_prompts()
+        for pair in indistribution_pairs(12):
+            self.assertNotIn(pair["messages"][1]["content"], seen)

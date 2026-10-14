@@ -31,3 +31,5 @@ What it copies and why:
 ## `dpo/`
 
 Curated outputs of the preference-tuning experiment described in the main README ("Preference tuning (DPO) against more SFT data"): `comparison_summary.json` (all five adapters on the holdout and challenge sets, with paired tests against the SFT reference and the forgetting losses; per-sample outputs stay in `artifacts/`), `comparison.png`, `mining_report.json` (which prompts the SFT adapter failed), and the loss, reward-accuracy and log-probability-shift history of the 100-iteration plain and NLL-anchored DPO runs. These are exported by hand from the runs named in `comparison_summary.json`; `scripts/export_reference.py` does not regenerate them.
+
+Follow-up (`dpo-mix`): `comparison_mixed_summary.json` / `comparison_mixed.png` compare SFT, both earlier arms, anchored DPO on mixed pairs, and an SFT control on the mixed data; `dpo_anchor_mixed_*` are that run's curves and history.

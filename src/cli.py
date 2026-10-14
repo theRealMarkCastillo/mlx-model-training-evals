@@ -85,6 +85,11 @@ def cmd_dpo_mine(args):
                temperature=args.temperature, max_tokens=args.max_tokens)
 
 
+def cmd_dpo_mix(args):
+    from src.dpo import run_mix
+    run_mix(source=args.pairs, output_dir=args.output_dir, preset=args.preset, model_name=args.model, count=args.count)
+
+
 def cmd_dpo(args):
     from src.dpo import run_dpo
     run_dpo(preset=args.preset, model_name=args.model, adapter_path=args.adapter, output_dir=args.output_dir,
@@ -269,6 +274,12 @@ def build_parser():
     p.add_argument("--temperature", type=float, default=0.8, help="Temperature for --extra-draws")
     p.add_argument("--max-tokens", type=positive_int, default=150)
     p.set_defaults(func=cmd_dpo_mine)
+
+    p = sub.add_parser("dpo-mix", help="Add synthetic in-distribution (dep-NNNN) rollback pairs to a mining run")
+    _model_selection(p)
+    p.add_argument("--pairs", help="Mining run to extend (default: the latest)")
+    p.add_argument("--count", type=positive_int, default=120, help="In-distribution prompts to add (default: 120)")
+    p.set_defaults(func=cmd_dpo_mix)
 
     p = sub.add_parser("dpo", help="Continue the SFT adapter with the DPO loss on mined pairs")
     _model_selection(p)

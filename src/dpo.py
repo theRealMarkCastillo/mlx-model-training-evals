@@ -230,6 +230,58 @@ def run_mining(*, preset=None, model_name=None, adapter_path=None, output_dir=No
     return run_dir
 
 
+def indistribution_pairs(count, *, seed=MINING_SEED + 1, data_dir=DATA_DIR):
+    """Synthetic pairs for rollback prompts in the *training* id format (`dep-NNNN`).
+
+    The SFT adapter already answers these correctly, so there is no mistake to mine. The
+    rejected text is the gold call with the id rewritten into a mining-pool format
+    (`{svc}-build{n}`): the opposite error to the mined pairs, so preference tuning cannot
+    reduce the problem to "never write dep-".
+    """
+    positive_int(count)
+    rng = random.Random(seed)
+    samples = build_samples(rng, count, all_evaluation_prompts(data_dir), families=TRAIN_FAMILIES,
+                            tools=("rollback_deployment",))
+    pairs = []
+    for index, record in enumerate(to_chat_format(samples)):
+        gold = json.loads(record["messages"][-1]["content"])
+        wrong = json.loads(record["messages"][-1]["content"])
+        pool = rng.choice(MINING_POOLS)
+        wrong["parameters"]["deployment_id"] = pool.deployment_id.format(n=rng.randint(1000, 9999),
+                                                                         svc=rng.choice(pool.services))
+        if wrong == gold:
+            continue
+        pairs.append({
+            "id": f"indist:{index}", "messages": record["messages"][:-1],
+            "chosen": record["messages"][-1]["content"], "rejected": json.dumps(wrong, separators=(",", ":")),
+            "rejected_source": "synthetic", "error_category": "wrong_id_format",
+            "wrong_fields": ["deployment_id"], "meta": record["meta"],
+        })
+    return pairs
+
+
+def run_mix(*, source=None, output_dir=None, preset=None, model_name=None, count=120, valid_fraction=0.15):
+    """Copy a mining run and add in-distribution pairs (and their gold calls to the SFT control data)."""
+    _, _, root = resolve_model_paths(preset, model_name, None, output_dir, need_adapter=False)
+    source = resolve_pairs_dir(source, root)
+    extra = indistribution_pairs(count)
+    extra_train, extra_valid = split_pairs(extra, valid_fraction)
+    train = read_jsonl(source / "pairs_train.jsonl") + extra_train
+    valid = read_jsonl(source / "pairs_valid.jsonl") + extra_valid
+    run_dir, manifest = new_run(root, "mine", derived_from=str(source), indistribution_pairs=len(extra))
+    with record_failure(run_dir, manifest):
+        save_jsonl(train, run_dir / "pairs_train.jsonl")
+        save_jsonl(valid, run_dir / "pairs_valid.jsonl")
+        original, added = write_control_data(run_dir / "sft_plus", train)
+        report = {"derived_from": str(source), "train_pairs": len(train), "valid_pairs": len(valid),
+                  "indistribution_pairs": len(extra), "control_train_records": {"original": original, "added": added}}
+        write_json(run_dir / "mining_report.json", report)
+        manifest["result"] = report
+        finish_run(root, run_dir, manifest)
+    console.print(f"Wrote {len(train)} train / {len(valid)} valid pairs ({len(extra)} in-distribution) to {run_dir}")
+    return run_dir
+
+
 def load_mined_records(samples):
     """Turn generator samples into the record shape `load_samples` produces (with parsed expectations)."""
     records = []
@@ -489,10 +541,13 @@ def run_dpo(*, preset=None, model_name=None, adapter_path=None, output_dir=None,
             (loss, stats), grads = value_and_grad(model, *_stack(rows), ref_chosen[mx.array(index)], ref_rejected[mx.array(index)])
             optimizer.update(model, grads)
             mx.eval(model.parameters(), optimizer.state, loss, stats)
+            del grads
+            mx.clear_cache()  # sequence lengths vary per step, so cached buffers are rarely reused
             window.append(float(loss.item()))
             history.append({"type": "train", "iteration": iteration, "loss": window[-1]})
             if iteration % steps_per_eval == 0 or iteration == iters:
-                console.print(f"  iter {iteration:4d}  train loss {np.mean(window):.4f}")
+                console.print(f"  iter {iteration:4d}  train loss {np.mean(window):.4f}  "
+                              f"peak memory {mx.get_peak_memory() / 1e9:.1f} GB")
                 window = []
                 validate(model, iteration)
 

@@ -254,6 +254,7 @@ The reference adapter's one measured failure is `rollback_deployment` on unseen 
 ```bash
 SFT=artifacts/qwen2.5-3b/runs/training-<id>/adapters         # the adapter being repaired (pass it explicitly)
 uv run python main.py dpo-mine --adapter $SFT                # fresh prompts, new entities and id formats → (chosen, rejected) pairs
+uv run python main.py dpo-mix --pairs <mine-run>               # add synthetic in-distribution (dep-NNNN) rollback pairs
 uv run python main.py dpo --adapter $SFT                     # continue the adapter with the DPO loss
 uv run python main.py train --config my-control.yaml         # control: SFT on the *same prompts'* gold calls (data in the mining run's sft_plus/)
 uv run python main.py compare sft=$SFT control=<dir> dpo=<dir>   # paired tests, targeted field, envelope validity, forgetting
@@ -280,7 +281,17 @@ What it shows:
 * **Unanchored DPO over-optimises.** By iteration 100 the rejected log-probability has fallen by ~117 nats while the chosen one barely moved (−0.14), validation reward accuracy has been 1.00 since iteration 10, and 25% of `challenge_entities` outputs are no longer schema-valid. Stopping at 10 iterations lands in between and is not better than SFT on anything.
 * **Forgetting is not the issue.** All five adapters have lower general-request loss than the base model (1.82 → 1.21–1.38); none is significantly worse than it. DPO adapters sit slightly above SFT (1.36–1.38 vs 1.21), but the sign tests are against the base model, and none of the five shows more records worse than better.
 
-Read it with the caveats it needs: one seed; 40-record challenge sets; mined pairs are 100% `rollback_deployment` (240 of 240 prompts failed, none of the 60 other-tool prompts did), so this tests one failure mode; `learning_rate` (5e-6) and `beta` (0.1) were not swept. The likely fix to try next is DPO pairs that include in-distribution rollbacks, or replaying the original SFT data alongside the pairs; that is untested here.
+Read it with the caveats it needs: one seed; 40-record challenge sets; mined pairs are 100% `rollback_deployment` (240 of 240 prompts failed, none of the 60 other-tool prompts did), so this tests one failure mode; `learning_rate` (5e-6) and `beta` (0.1) were not swept. **Follow-up: the missing `dep-NNNN` pairs were the cause.** `dpo-mix` adds 120 synthetic in-distribution rollback pairs (102 train): the prompt uses the training id format, chosen is the gold call, and rejected is the same call with the id rewritten into a mining-pool format (the opposite error to the mined pairs). Anchored DPO on that mixed set (306 train pairs, same hyperparameters) against the SFT adapter:
+
+| Set (n) | SFT | Control (original) | Anchored DPO | **Anchored DPO, mixed pairs** | Control, mixed data |
+|---|---:|---:|---:|---:|---:|
+| `test` (75) | 100 | 96.0 | 78.7 | **100** | 70.7 (p < 1e-6) |
+| `challenge_abstain` (40) | 95.0 | 92.5 | 95.0 | **95.0** | 40.0 (p = 1e-5) |
+| `challenge_defaults` (40) | 100 | 97.5 | 67.5 | **100** | 75.0 |
+| `challenge_entities` (40) | 75.0 | 97.5 | 97.5 | **97.5** (p = 0.012) | 70.0 |
+| rollback `deployment_id`, `test` | 100 | 100 | 0 | **100** | 100 |
+
+Anchored DPO on the mixed pairs fixes the unseen-entity failure (+10/−1 vs SFT) and no longer regresses anything: no paired difference from SFT on any other set, `dep-NNNN` rollbacks back at 100%. The pairs' coverage, not the DPO loss, caused the earlier regression. The mixed SFT control got worse, not better: it adds 306 rollback-only records to 250 originals, which skews the tool mix (abstention falls to 40%). So "control" in this table is not a like-for-like baseline for the mixed pairs; DPO's reference-relative loss is less sensitive to that skew, and the original control (96 / 92.5 / 97.5 / 97.5) remains the better SFT baseline. One seed and 40-record sets still apply, and the added pairs are synthetic.
 
 Two things nearly invalidated the experiment, and both are checked in code now: `mlx_lm.load(..., adapter_path=...)` leaves the base model's biases and norm weights trainable (`freeze_all_but_lora` freezes them and verifies the trainable names equal the SFT adapter's), and a loaded adapter's float16 LoRA matrices turn AdamW's `eps` into zero (NaN loss within ten steps), so they are trained in float32. Separately, `latest.json` points at whichever run *finished last*, which here was a 5-iteration smoke test; pass `--adapter` explicitly to anything that matters.
 
