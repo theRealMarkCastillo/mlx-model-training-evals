@@ -304,6 +304,18 @@ Anchored DPO on the mixed pairs fixes the unseen-entity failure (+10/−1 vs SFT
 
 The seed-42 control looked competitive because it was the best of its three. The control varies by up to 17 points per set between seeds, and seed 43 raised general-request loss to 2.39, worse than the base model's 1.82. DPO is nearly identical across seeds and does not regress. Two reasons to be careful before crediting the loss itself: the control retrains from scratch with a new LoRA initialisation, while DPO only continues the 100% SFT adapter and varies batch order, so its lower variance is partly built in; and the fairer baseline, continuing SFT from the SFT adapter on the same gold calls, has not been run. What the data does support is that, as configured, the mixed-pair DPO procedure is a safe way to fix this failure, and that a single control seed was misleading.
 
+**The fair baseline ties DPO.** `dpo --sft-only` continues the SFT adapter on the same 306 pairs' chosen responses with the same optimiser, learning rate, batches and NLL term, and drops only the preference term (3 seeds, exact match %, mean [min–max]):
+
+| Set (n) | SFT | Continued SFT | Anchored DPO |
+|---|---:|---:|---:|
+| `test` (75) | 100 | 100 [100–100] | 100 [100–100] |
+| `challenge_abstain` (40) | 95.0 | 95.0 [95–95] | 95.0 [95–95] |
+| `challenge_defaults` (40) | 100 | 100 [100–100] | 100 [100–100] |
+| `challenge_entities` (40) | 75.0 | 99.2 [97.5–100] | 98.3 [97.5–100] |
+| general-request loss (base 1.82) | 1.215 | 1.263–1.271 | 1.373–1.385 |
+
+Continued SFT reaches the same accuracy with a smaller forgetting cost, and each seed's gain on `challenge_entities` is significant against SFT (+10/−1 or +10/−0, p ≤ 0.012). So the preference term adds nothing measurable on this task. The earlier control's variance came from retraining from scratch, not from SFT as such, and the "three seeds" table above overstated DPO's advantage. This task has one correct answer per prompt, which is what SFT is built for.
+
 Two things nearly invalidated the experiment, and both are checked in code now: `mlx_lm.load(..., adapter_path=...)` leaves the base model's biases and norm weights trainable (`freeze_all_but_lora` freezes them and verifies the trainable names equal the SFT adapter's), and a loaded adapter's float16 LoRA matrices turn AdamW's `eps` into zero (NaN loss within ten steps), so they are trained in float32. Separately, `latest.json` points at whichever run *finished last*, which here was a 5-iteration smoke test; pass `--adapter` explicitly to anything that matters.
 
 ### Does scale close the gap?

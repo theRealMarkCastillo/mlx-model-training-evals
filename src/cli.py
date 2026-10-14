@@ -94,7 +94,8 @@ def cmd_dpo(args):
     from src.dpo import run_dpo
     run_dpo(preset=args.preset, model_name=args.model, adapter_path=args.adapter, output_dir=args.output_dir,
             pairs=args.pairs, iters=args.iters, batch_size=args.batch_size, learning_rate=args.learning_rate,
-            beta=args.beta, sft_alpha=args.sft_alpha, steps_per_eval=args.steps_per_eval, seed=args.seed)
+            beta=args.beta, sft_alpha=args.sft_alpha, steps_per_eval=args.steps_per_eval, seed=args.seed,
+            preference=not args.sft_only)
 
 
 def cmd_compare(args):
@@ -289,6 +290,8 @@ def build_parser():
     p.add_argument("--learning-rate", type=float, default=5e-6)
     p.add_argument("--beta", type=float, default=0.1, help="KL leash: higher stays closer to the SFT adapter")
     p.add_argument("--sft-alpha", type=float, default=0.0, help="Weight of an NLL anchor on the chosen response")
+    p.add_argument("--sft-only", action="store_true",
+                   help="Drop the preference term and train only the --sft-alpha NLL on the chosen responses (ablation)")
     p.add_argument("--steps-per-eval", type=positive_int, default=10)
     p.add_argument("--seed", type=int, default=42)
     p.set_defaults(func=cmd_dpo)

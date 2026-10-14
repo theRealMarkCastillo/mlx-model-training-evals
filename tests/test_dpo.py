@@ -108,6 +108,18 @@ class DpoLossTests(unittest.TestCase):
         after = loss_fn(model, tokens, offsets, ref[:1], ref[1:])[0].item()
         self.assertLess(after, before)
 
+    def test_sft_only_drops_the_preference_term_and_keeps_the_anchor(self):
+        mx.random.seed(1)
+        model = TinyLM()
+        tokens, offsets = [[1, 2, 3, 4], [1, 2, 5, 6]], [2, 2]
+        logps, counts = sequence_logprobs(model, tokens, offsets)
+        ref_chosen, ref_rejected = logps[:1] - 3.0, logps[1:] + 3.0  # a non-trivial preference loss
+        nll = (-(logps[:1] / counts[:1])).mean().item()
+        both = make_loss_fn(0.5, 1.0)(model, tokens, offsets, ref_chosen, ref_rejected)[0].item()
+        anchor_only = make_loss_fn(0.5, 1.0, preference=False)(model, tokens, offsets, ref_chosen, ref_rejected)[0].item()
+        self.assertAlmostEqual(anchor_only, nll, places=5)
+        self.assertGreater(both, anchor_only)
+
 
 class PairDataTests(unittest.TestCase):
     def test_split_is_deterministic_disjoint_and_nonempty(self):

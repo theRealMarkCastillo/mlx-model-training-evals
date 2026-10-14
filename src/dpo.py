@@ -379,11 +379,17 @@ def reference_logprobs(model, encoded, batch_size):
     return mx.array(chosen), mx.array(rejected)
 
 
-def make_loss_fn(beta, sft_alpha):
+def make_loss_fn(beta, sft_alpha, preference=True):
+    """DPO loss plus an optional NLL anchor; `preference=False` keeps only the anchor (the SFT ablation).
+
+    The preference statistics are still computed so both variants log the same curves.
+    """
     def loss_fn(model, tokens, offsets, ref_chosen, ref_rejected):
         logps, counts = sequence_logprobs(model, tokens, offsets)
         n = ref_chosen.shape[0]
         loss, stats = dpo_loss(logps[:n], logps[n:], ref_chosen, ref_rejected, beta)
+        if not preference:
+            loss = loss * 0.0
         if sft_alpha:
             # Optional NLL anchor on the chosen response (RPO-style) against likelihood displacement.
             loss = loss + sft_alpha * (-(logps[:n] / counts[:n])).mean()
@@ -473,11 +479,13 @@ def read_jsonl(path):
 
 
 def run_dpo(*, preset=None, model_name=None, adapter_path=None, output_dir=None, pairs=None, iters=100,
-            batch_size=4, learning_rate=5e-6, beta=0.1, sft_alpha=0.0, steps_per_eval=10, seed=42,
+            batch_size=4, learning_rate=5e-6, beta=0.1, sft_alpha=0.0, steps_per_eval=10, seed=42, preference=True,
             max_seq_length=1024):
     """Continue training the SFT adapter with the DPO loss on mined pairs; returns the run directory."""
     for value in (iters, batch_size, steps_per_eval):
         positive_int(value)
+    if not preference and not sft_alpha:
+        raise ValueError("--sft-only needs --sft-alpha > 0: with no preference term there would be no loss")
     if beta <= 0 or learning_rate <= 0 or sft_alpha < 0:
         raise ValueError("beta and learning_rate must be positive and sft_alpha non-negative")
     model_name, adapter_path, root = resolve_model_paths(preset, model_name, adapter_path, output_dir)
@@ -485,7 +493,7 @@ def run_dpo(*, preset=None, model_name=None, adapter_path=None, output_dir=None,
     source, identity = resolve_adapter_source(model_name, adapter_path)
     train_pairs, valid_pairs = read_jsonl(pairs_dir / "pairs_train.jsonl"), read_jsonl(pairs_dir / "pairs_valid.jsonl")
     config = {"iters": iters, "batch_size": batch_size, "learning_rate": learning_rate, "beta": beta,
-              "sft_alpha": sft_alpha, "steps_per_eval": steps_per_eval, "seed": seed, "max_seq_length": max_seq_length}
+              "sft_alpha": sft_alpha, "preference": preference, "steps_per_eval": steps_per_eval, "seed": seed, "max_seq_length": max_seq_length}
     run_dir, manifest = new_run(
         root, "dpo", model=model_name, model_source=identity, sft_adapter=adapter_identity(adapter_path),
         config=config, pairs={name: file_identity(pairs_dir / f"{name}.jsonl") for name in ("pairs_train", "pairs_valid")},
@@ -511,7 +519,7 @@ def run_dpo(*, preset=None, model_name=None, adapter_path=None, output_dir=None,
 
         ref_chosen, ref_rejected = reference_logprobs(model, train_set, batch_size)
         valid_ref_chosen, valid_ref_rejected = reference_logprobs(model, valid_set, batch_size)
-        loss_fn = make_loss_fn(beta, sft_alpha)
+        loss_fn = make_loss_fn(beta, sft_alpha, preference)
         value_and_grad = nn.value_and_grad(model, loss_fn)
         optimizer = optim.AdamW(learning_rate=learning_rate)
 
