@@ -293,6 +293,17 @@ Read it with the caveats it needs: one seed; 40-record challenge sets; mined pai
 
 Anchored DPO on the mixed pairs fixes the unseen-entity failure (+10/−1 vs SFT) and no longer regresses anything: no paired difference from SFT on any other set, `dep-NNNN` rollbacks back at 100%. The pairs' coverage, not the DPO loss, caused the earlier regression. The mixed SFT control got worse, not better: it adds 306 rollback-only records to 250 originals, which skews the tool mix (abstention falls to 40%). So "control" in this table is not a like-for-like baseline for the mixed pairs; DPO's reference-relative loss is less sensitive to that skew, and the original control (96 / 92.5 / 97.5 / 97.5) remains the better SFT baseline. One seed and 40-record sets still apply, and the added pairs are synthetic.
 
+**Three seeds change the comparison.** Repeating anchored DPO on the mixed pairs and the original SFT control with seeds 42, 43 and 44 (exact match %, mean [min–max]):
+
+| Set (n) | SFT | Control, 3 seeds | **Anchored DPO, mixed pairs, 3 seeds** |
+|---|---:|---:|---:|
+| `test` (75) | 100 | 97.8 [96.0–100] | **100 [100–100]** |
+| `challenge_abstain` (40) | 95.0 | 88.3 [82.5–92.5] | **95.0 [95.0–95.0]** |
+| `challenge_defaults` (40) | 100 | 88.3 [80.0–97.5] | **100 [100–100]** |
+| `challenge_entities` (40) | 75.0 | 93.3 [90.0–97.5] | **98.3 [97.5–100]** |
+
+The seed-42 control looked competitive because it was the best of its three. The control varies by up to 17 points per set between seeds, and seed 43 raised general-request loss to 2.39, worse than the base model's 1.82. DPO is nearly identical across seeds and does not regress. Two reasons to be careful before crediting the loss itself: the control retrains from scratch with a new LoRA initialisation, while DPO only continues the 100% SFT adapter and varies batch order, so its lower variance is partly built in; and the fairer baseline, continuing SFT from the SFT adapter on the same gold calls, has not been run. What the data does support is that, as configured, the mixed-pair DPO procedure is a safe way to fix this failure, and that a single control seed was misleading.
+
 Two things nearly invalidated the experiment, and both are checked in code now: `mlx_lm.load(..., adapter_path=...)` leaves the base model's biases and norm weights trainable (`freeze_all_but_lora` freezes them and verifies the trainable names equal the SFT adapter's), and a loaded adapter's float16 LoRA matrices turn AdamW's `eps` into zero (NaN loss within ten steps), so they are trained in float32. Separately, `latest.json` points at whichever run *finished last*, which here was a 5-iteration smoke test; pass `--adapter` explicitly to anything that matters.
 
 ### Does scale close the gap?
