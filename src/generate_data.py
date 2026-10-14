@@ -74,6 +74,37 @@ UNSEEN = EntityPool(
     deployment_id="{svc}-r{n}",
 )
 
+# Preference-pair mining (src/dpo.py). Two pools with entities found in neither SEEN nor UNSEEN
+# and two deployment-id formats found in neither of those pools' formats, so mined pairs never
+# overlap `challenge_entities` in names *or* id shape. The formats embed the service name, like
+# the UNSEEN one, because that is where the SFT adapter was observed to stop copying the id.
+MINING_POOLS = (
+    EntityPool(
+        services=("order-router", "tax-calculator", "image-resizer", "audit-logger", "feature-flags",
+                  "pricing-engine", "webhook-relay", "report-builder"),
+        pods=("rabbitmq-node-3", "grafana-0", "prometheus-shard-4", "elasticsearch-data-2"),
+        regions=("eu-north-1", "us-east-2", "ap-southeast-2", "me-south-1"),
+        channels=("#release-room", "#data-platform", "#sre-handoff"),
+        instance_types=("m5.2xlarge", "c5.4xlarge", "r5.large"),
+        cluster_names=tuple(f"gke-{a}-{b}" for a in ("data", "ml") for b in ("one", "two", "three")),
+        major_versions=(10, 11, 12, 13),
+        reasons=("memory leak", "connection resets", "stale leader election", "slow startup"),
+        deployment_id="{svc}-build{n}",
+    ),
+    EntityPool(
+        services=("quota-manager", "sms-gateway", "search-frontend", "ledger-archiver", "metrics-collector",
+                  "invoice-renderer", "geo-fence", "token-minter"),
+        pods=("memcached-2", "zookeeper-1", "loki-ingester-3", "tempo-querier-0"),
+        regions=("eu-south-1", "us-gov-west-1", "af-south-1", "ap-east-1"),
+        channels=("#oncall-handoff", "#capacity", "#change-review"),
+        instance_types=("m6a.large", "c6a.xlarge", "r6a.2xlarge"),
+        cluster_names=tuple(f"aks-{a}-{b}" for a in ("core", "jobs") for b in ("red", "green", "amber")),
+        major_versions=(14, 15, 16),
+        reasons=("thread starvation", "clock skew", "queue backlog", "heap exhaustion"),
+        deployment_id="rel_{svc}_{n}",
+    ),
+)
+
 ENVIRONMENTS = (
     ("production", ("prod", "production", "live cluster", "primary prod")),
     ("staging", ("staging", "stage", "pre-prod", "qa-staging")),

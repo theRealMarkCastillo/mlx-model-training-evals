@@ -247,6 +247,43 @@ The comparison is paired per record and tested with an exact **sign test** (not 
 
 There is **no detectable forgetting**: the (non-significant) direction of the effect is that the adapter got *better* at ordinary requests. That is plausible for LoRA on a narrow task — the base weights never move, and practice at producing strict structured output helps general instruction-following — but read it as "not damaged on these 24 requests", never as "general ability preserved". The honest reading is asymmetric: a 24-record synthetic set can show that general ability was **not obviously destroyed**; it can never show that it was preserved.
 
+### Preference tuning (DPO) against more SFT data
+
+The reference adapter's one measured failure is `rollback_deployment` on unseen entities: it writes `dep-9821` instead of copying the identifier from the request. Two ways to fix it, compared on equal footing:
+
+```bash
+SFT=artifacts/qwen2.5-3b/runs/training-<id>/adapters         # the adapter being repaired (pass it explicitly)
+uv run python main.py dpo-mine --adapter $SFT                # fresh prompts, new entities and id formats → (chosen, rejected) pairs
+uv run python main.py dpo --adapter $SFT                     # continue the adapter with the DPO loss
+uv run python main.py train --config my-control.yaml         # control: SFT on the *same prompts'* gold calls (data in the mining run's sft_plus/)
+uv run python main.py compare sft=$SFT control=<dir> dpo=<dir>   # paired tests, targeted field, envelope validity, forgetting
+```
+
+`dpo-mine` generates prompts from two entity pools and two deployment-id formats that appear in no evaluation set (`generate_data.MINING_POOLS`, checked disjoint from every split and challenge prompt), greedy-decodes the SFT adapter, and keeps every wrong answer as the *rejected* side of a pair against the gold call. `src/dpo.py` documents the loss; the reference is the adapter at step 0, so no second model is held in memory and the loss at step 0 is exactly ln 2 (the run aborts if it is not).
+
+Results on the 3B reference adapter, exact match %, greedy, one seed (full numbers in [`docs/reference-run/dpo/`](docs/reference-run/dpo/)):
+
+| Set (n) | SFT | **Control** (SFT, same prompts) | DPO, 100 it | DPO, 10 it | DPO + NLL anchor |
+|---|---:|---:|---:|---:|---:|
+| `test` (75) | **100** | 96.0 | 78.7 | 82.7 | 78.7 |
+| `challenge_defaults` (40) | **100** | 97.5 | 57.5 | 92.5 | 67.5 |
+| `challenge_abstain` (40) | 95.0 | 92.5 | 95.0 | 95.0 | 95.0 |
+| `challenge_entities` (40) | 75.0 | **97.5** | 72.5 | 82.5 | **97.5** |
+| rollback `deployment_id`, `challenge_entities` | 0 | **100** | 0 | 40 | **100** |
+| rollback `deployment_id`, `test` | **100** | **100** | 0 | 20 | 0 |
+| schema-valid, `challenge_entities` | 100 | 100 | 75 | 85 | 100 |
+
+What it shows:
+
+* **More SFT data fixed it; DPO did not, as configured.** Control: `challenge_entities` 75 → 97.5 (McNemar +10/−1, p = 0.012), nothing else significantly worse.
+* **DPO with an NLL anchor fixes the target equally well, then breaks something it was never shown.** `challenge_entities` reaches 97.5 and `deployment_id` 100, but `deployment_id` on the standard `test` falls from 100 to 0. Every mined pair has a non-`dep-` identifier on the chosen side and a `dep-NNNN` on the rejected side, so "never write `dep-`" separates all of them, and nothing in the pairs says `dep-` is right when the request contains it. The control does not have this problem because its data still contains the original `dep-NNNN` training records.
+* **Unanchored DPO over-optimises.** By iteration 100 the rejected log-probability has fallen by ~117 nats while the chosen one barely moved (−0.14), validation reward accuracy has been 1.00 since iteration 10, and 25% of `challenge_entities` outputs are no longer schema-valid. Stopping at 10 iterations lands in between and is not better than SFT on anything.
+* **Forgetting is not the issue.** All five adapters have lower general-request loss than the base model (1.82 → 1.21–1.38); none is significantly worse than it. DPO adapters sit slightly above SFT (1.36–1.38 vs 1.21), but the sign tests are against the base model, and none of the five shows more records worse than better.
+
+Read it with the caveats it needs: one seed; 40-record challenge sets; mined pairs are 100% `rollback_deployment` (240 of 240 prompts failed, none of the 60 other-tool prompts did), so this tests one failure mode; `learning_rate` (5e-6) and `beta` (0.1) were not swept. The likely fix to try next is DPO pairs that include in-distribution rollbacks, or replaying the original SFT data alongside the pairs; that is untested here.
+
+Two things nearly invalidated the experiment, and both are checked in code now: `mlx_lm.load(..., adapter_path=...)` leaves the base model's biases and norm weights trainable (`freeze_all_but_lora` freezes them and verifies the trainable names equal the SFT adapter's), and a loaded adapter's float16 LoRA matrices turn AdamW's `eps` into zero (NaN loss within ten steps), so they are trained in float32. Separately, `latest.json` points at whichever run *finished last*, which here was a 5-iteration smoke test; pass `--adapter` explicitly to anything that matters.
+
 ### Does scale close the gap?
 
 The 3B table leaves open whether the story is specific to one model size. Repeating the prompting-only variants (base, few-shot, grammar — no training) on the cached 14B and 32B models:
@@ -329,6 +366,9 @@ uv run python main.py show-params --preset 3b            # adapter size per proj
 uv run python main.py inspect --variant base --index 0    # token-by-token probabilities for one decode
 uv run python main.py eval --preset 3b --constrained       # base model + valid-JSON-by-construction decoding
 uv run python main.py forgetting --preset 3b             # did fine-tuning hurt general requests?
+uv run python main.py dpo-mine --adapter $SFT            # preference pairs from the adapter's own mistakes
+uv run python main.py dpo --adapter $SFT                 # DPO on those pairs (see "Preference tuning" above)
+uv run python main.py compare sft=$SFT dpo=<dir> ...     # several adapters, paired tests, forgetting
 uv run python main.py eval --preset 3b --temperature 0.7 --seed 7   # sampled draw instead of greedy
 uv run python main.py ablate iters 25 50 100 200         # train + evaluate per value
 uv run python main.py ablate rank 2 8 32 --iters 100
@@ -429,6 +469,8 @@ Defaults resolve **only** through `latest.json` pointers. If no training run has
 | `src/show_data.py` | offline dataset summary: sizes, balance, omitted defaults, token counts, examples |
 | `src/constrained.py` | schema-derived JSON grammar and the logits mask for grammar-constrained decoding |
 | `src/forgetting.py` | general-capability loss comparison (base vs LoRA) with an exact sign test |
+| `src/dpo.py` | preference-pair mining, DPO loss and trainer (reference = step-0 policy), SFT control data |
+| `src/compare.py` | side-by-side adapter comparison: exact match, paired McNemar, targeted field, forgetting |
 | `src/ablation.py`, `src/benchmark.py`, `src/fuse.py` | sweeps, speed, fusion |
 | `src/runs.py` | run directories, manifests, latest pointers |
 

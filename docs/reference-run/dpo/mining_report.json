@@ -1,0 +1,92 @@
+{
+  "prompts": 300,
+  "pairs": 240,
+  "train_pairs": 204,
+  "valid_pairs": 36,
+  "greedy_wrong_by_tool": {
+    "rollback_deployment": {
+      "prompts": 240,
+      "greedy_wrong": 240
+    },
+    "scale_cluster": {
+      "prompts": 14,
+      "greedy_wrong": 0
+    },
+    "deploy_service": {
+      "prompts": 16,
+      "greedy_wrong": 0
+    },
+    "no_action": {
+      "prompts": 14,
+      "greedy_wrong": 0
+    },
+    "restart_pod": {
+      "prompts": 16,
+      "greedy_wrong": 0
+    }
+  },
+  "rejected_source": {
+    "greedy": 240,
+    "sampled": 0
+  },
+  "error_categories": {
+    "parameters": 240
+  },
+  "control_train_records": {
+    "original": 250,
+    "added": 204
+  },
+  "examples": [
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are an automated Cloud Infrastructure Action Dispatcher.\nConvert operational requests into strictly structured tool calls.\nAvailable tools and parameters:\ndeploy_service:\n- service: {\"type\": \"string\"}. Name of the microservice (e.g. auth-service, payment-api)\n- version: {\"type\": \"string\"}. Release tag or semantic version (e.g. v2.4.1, commit hash)\n- environment: {\"enum\": [\"production\", \"staging\", \"development\"], \"type\": \"string\"}. Target deployment environment\n- replicas: {\"default\": 2, \"maximum\": 100, \"minimum\": 1, \"type\": \"integer\"}. Number of replica instances\n- notify_channels: {\"items\": {\"type\": \"string\"}, \"type\": \"array\", \"default\": []}. Slack or webhook notification channels (e.g. ['#deployments'])\nrestart_pod:\n- pod_name: {\"type\": \"string\"}. Identifier or exact name of the kubernetes pod\n- region: {\"type\": \"string\"}. Cloud region (e.g. us-east-1, eu-west-1, ap-northeast-1)\n- force: {\"default\": false, \"type\": \"boolean\"}. Whether to kill gracefully or forcefully immediately\n- reason: {\"type\": \"string\"}. Operational rationale for restart (e.g. high memory leak, unresponsive)\nrollback_deployment:\n- deployment_id: {\"type\": \"string\"}. Deployment identifier (e.g. dep-9821, auth-v2)\n- target_tag: {\"type\": \"string\"}. Target version tag to restore (e.g. v1.8.4)\n- drain_traffic: {\"default\": true, \"type\": \"boolean\"}. Whether to drain live traffic before terminating current instances\nscale_cluster:\n- cluster_name: {\"type\": \"string\"}. Name of the Kubernetes or compute cluster (e.g. eks-core-prod)\n- node_count: {\"maximum\": 500, \"minimum\": 1, \"type\": \"integer\"}. Desired total number of worker nodes\n- auto_scale: {\"default\": true, \"type\": \"boolean\"}. Enable cluster autoscaler daemon\n- instance_type: {\"default\": \"m6i.xlarge\", \"type\": \"string\"}. Cloud instance size or VM type\nno_action:\n- reason: {\"enum\": [\"unsupported_request\", \"missing_required_parameter\"], \"type\": \"string\"}. Why no tool call is made: no tool performs the request, or a required parameter is absent\nRespond ONLY with one JSON object containing tool and parameters.\nNo markdown fences, preamble, explanations, or extra fields. Use exact parameter types.\nInclude all parameters, using documented defaults when omitted in the request.\nFor restart_pod.reason, copy the reason phrase exactly as written in the request, without surrounding sentence punctuation.\nOnly notify channels explicitly requested; otherwise use an empty list.\nIf no tool performs the request, or a required parameter (one without a default) is missing, respond with no_action instead of guessing a value."
+        },
+        {
+          "role": "user",
+          "content": "Roll back deployment rel_sms-gateway_7034 to tag v14.10.2."
+        }
+      ],
+      "chosen": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"rel_sms-gateway_7034\",\"target_tag\":\"v14.10.2\",\"drain_traffic\":true}}",
+      "rejected": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-9821\",\"target_tag\":\"v14.10.2\",\"drain_traffic\":true}}",
+      "wrong_fields": [
+        "deployment_id"
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are an automated Cloud Infrastructure Action Dispatcher.\nConvert operational requests into strictly structured tool calls.\nAvailable tools and parameters:\ndeploy_service:\n- service: {\"type\": \"string\"}. Name of the microservice (e.g. auth-service, payment-api)\n- version: {\"type\": \"string\"}. Release tag or semantic version (e.g. v2.4.1, commit hash)\n- environment: {\"enum\": [\"production\", \"staging\", \"development\"], \"type\": \"string\"}. Target deployment environment\n- replicas: {\"default\": 2, \"maximum\": 100, \"minimum\": 1, \"type\": \"integer\"}. Number of replica instances\n- notify_channels: {\"items\": {\"type\": \"string\"}, \"type\": \"array\", \"default\": []}. Slack or webhook notification channels (e.g. ['#deployments'])\nrestart_pod:\n- pod_name: {\"type\": \"string\"}. Identifier or exact name of the kubernetes pod\n- region: {\"type\": \"string\"}. Cloud region (e.g. us-east-1, eu-west-1, ap-northeast-1)\n- force: {\"default\": false, \"type\": \"boolean\"}. Whether to kill gracefully or forcefully immediately\n- reason: {\"type\": \"string\"}. Operational rationale for restart (e.g. high memory leak, unresponsive)\nrollback_deployment:\n- deployment_id: {\"type\": \"string\"}. Deployment identifier (e.g. dep-9821, auth-v2)\n- target_tag: {\"type\": \"string\"}. Target version tag to restore (e.g. v1.8.4)\n- drain_traffic: {\"default\": true, \"type\": \"boolean\"}. Whether to drain live traffic before terminating current instances\nscale_cluster:\n- cluster_name: {\"type\": \"string\"}. Name of the Kubernetes or compute cluster (e.g. eks-core-prod)\n- node_count: {\"maximum\": 500, \"minimum\": 1, \"type\": \"integer\"}. Desired total number of worker nodes\n- auto_scale: {\"default\": true, \"type\": \"boolean\"}. Enable cluster autoscaler daemon\n- instance_type: {\"default\": \"m6i.xlarge\", \"type\": \"string\"}. Cloud instance size or VM type\nno_action:\n- reason: {\"enum\": [\"unsupported_request\", \"missing_required_parameter\"], \"type\": \"string\"}. Why no tool call is made: no tool performs the request, or a required parameter is absent\nRespond ONLY with one JSON object containing tool and parameters.\nNo markdown fences, preamble, explanations, or extra fields. Use exact parameter types.\nInclude all parameters, using documented defaults when omitted in the request.\nFor restart_pod.reason, copy the reason phrase exactly as written in the request, without surrounding sentence punctuation.\nOnly notify channels explicitly requested; otherwise use an empty list.\nIf no tool performs the request, or a required parameter (one without a default) is missing, respond with no_action instead of guessing a value."
+        },
+        {
+          "role": "user",
+          "content": "Roll back deployment rel_search-frontend_9630 to tag v15.7.8. Skip traffic draining and swap immediately."
+        }
+      ],
+      "chosen": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"rel_search-frontend_9630\",\"target_tag\":\"v15.7.8\",\"drain_traffic\":false}}",
+      "rejected": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-9630\",\"target_tag\":\"v15.7.8\",\"drain_traffic\":false}}",
+      "wrong_fields": [
+        "deployment_id"
+      ]
+    },
+    {
+      "messages": [
+        {
+          "role": "system",
+          "content": "You are an automated Cloud Infrastructure Action Dispatcher.\nConvert operational requests into strictly structured tool calls.\nAvailable tools and parameters:\ndeploy_service:\n- service: {\"type\": \"string\"}. Name of the microservice (e.g. auth-service, payment-api)\n- version: {\"type\": \"string\"}. Release tag or semantic version (e.g. v2.4.1, commit hash)\n- environment: {\"enum\": [\"production\", \"staging\", \"development\"], \"type\": \"string\"}. Target deployment environment\n- replicas: {\"default\": 2, \"maximum\": 100, \"minimum\": 1, \"type\": \"integer\"}. Number of replica instances\n- notify_channels: {\"items\": {\"type\": \"string\"}, \"type\": \"array\", \"default\": []}. Slack or webhook notification channels (e.g. ['#deployments'])\nrestart_pod:\n- pod_name: {\"type\": \"string\"}. Identifier or exact name of the kubernetes pod\n- region: {\"type\": \"string\"}. Cloud region (e.g. us-east-1, eu-west-1, ap-northeast-1)\n- force: {\"default\": false, \"type\": \"boolean\"}. Whether to kill gracefully or forcefully immediately\n- reason: {\"type\": \"string\"}. Operational rationale for restart (e.g. high memory leak, unresponsive)\nrollback_deployment:\n- deployment_id: {\"type\": \"string\"}. Deployment identifier (e.g. dep-9821, auth-v2)\n- target_tag: {\"type\": \"string\"}. Target version tag to restore (e.g. v1.8.4)\n- drain_traffic: {\"default\": true, \"type\": \"boolean\"}. Whether to drain live traffic before terminating current instances\nscale_cluster:\n- cluster_name: {\"type\": \"string\"}. Name of the Kubernetes or compute cluster (e.g. eks-core-prod)\n- node_count: {\"maximum\": 500, \"minimum\": 1, \"type\": \"integer\"}. Desired total number of worker nodes\n- auto_scale: {\"default\": true, \"type\": \"boolean\"}. Enable cluster autoscaler daemon\n- instance_type: {\"default\": \"m6i.xlarge\", \"type\": \"string\"}. Cloud instance size or VM type\nno_action:\n- reason: {\"enum\": [\"unsupported_request\", \"missing_required_parameter\"], \"type\": \"string\"}. Why no tool call is made: no tool performs the request, or a required parameter is absent\nRespond ONLY with one JSON object containing tool and parameters.\nNo markdown fences, preamble, explanations, or extra fields. Use exact parameter types.\nInclude all parameters, using documented defaults when omitted in the request.\nFor restart_pod.reason, copy the reason phrase exactly as written in the request, without surrounding sentence punctuation.\nOnly notify channels explicitly requested; otherwise use an empty list.\nIf no tool performs the request, or a required parameter (one without a default) is missing, respond with no_action instead of guessing a value."
+        },
+        {
+          "role": "user",
+          "content": "Revert image-resizer-build3685 back to v13.5.0."
+        }
+      ],
+      "chosen": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"image-resizer-build3685\",\"target_tag\":\"v13.5.0\",\"drain_traffic\":true}}",
+      "rejected": "{\"tool\":\"rollback_deployment\",\"parameters\":{\"deployment_id\":\"dep-9821\",\"target_tag\":\"v13.5.0\",\"drain_traffic\":true}}",
+      "wrong_fields": [
+        "deployment_id"
+      ]
+    }
+  ]
+}

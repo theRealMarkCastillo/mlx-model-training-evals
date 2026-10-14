@@ -27,3 +27,7 @@ What it copies and why:
 * Ablations over `iters` share a seed and follow one trajectory (their validation losses at iterations 25 and 50 are identical), so that sweep is closer to "checkpoints of one run" than to four independent experiments.
 * The `ablation` section of `summary.json` is the **iteration** sweep. Seed results live in `seed_sweep.json`.
 * Outputs from the pre-rewrite pipeline are in `artifacts/historical/` and are **not** comparable to anything here.
+
+## `dpo/`
+
+Curated outputs of the preference-tuning experiment described in the main README ("Preference tuning (DPO) against more SFT data"): `comparison_summary.json` (all five adapters on the holdout and challenge sets, with paired tests against the SFT reference and the forgetting losses; per-sample outputs stay in `artifacts/`), `comparison.png`, `mining_report.json` (which prompts the SFT adapter failed), and the loss, reward-accuracy and log-probability-shift history of the 100-iteration plain and NLL-anchored DPO runs. These are exported by hand from the runs named in `comparison_summary.json`; `scripts/export_reference.py` does not regenerate them.

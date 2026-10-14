@@ -71,11 +71,31 @@ def cmd_train(args):
         tier = args.ram if getattr(args, "ram", None) and args.ram != "auto" else None
         overrides.update(optimal_overrides(args.preset or DEFAULT_PRESET, tier))
     cli_overrides = {k: v for k, v in (("rank", args.rank), ("learning_rate", args.learning_rate),
-                                       ("num_layers", args.num_layers), ("seed", args.seed),
+                                       ("num_layers", args.num_layers), ("seed", args.seed), ("data", args.data),
                                        ("batch_size", args.batch_size), ("grad_checkpoint", args.grad_checkpoint)) if v is not None}
     overrides.update(cli_overrides)
     run_training(config_path=args.config, iters_override=args.iters, preset=args.preset,
                  output_dir=args.output_dir, overrides=overrides, validate=not args.no_validate)
+
+
+def cmd_dpo_mine(args):
+    from src.dpo import run_mining
+    run_mining(preset=args.preset, model_name=args.model, adapter_path=args.adapter, output_dir=args.output_dir,
+               rollback_count=args.rollback, other_count=args.other, extra_draws=args.extra_draws,
+               temperature=args.temperature, max_tokens=args.max_tokens)
+
+
+def cmd_dpo(args):
+    from src.dpo import run_dpo
+    run_dpo(preset=args.preset, model_name=args.model, adapter_path=args.adapter, output_dir=args.output_dir,
+            pairs=args.pairs, iters=args.iters, batch_size=args.batch_size, learning_rate=args.learning_rate,
+            beta=args.beta, sft_alpha=args.sft_alpha, steps_per_eval=args.steps_per_eval, seed=args.seed)
+
+
+def cmd_compare(args):
+    from src.compare import parse_named_adapters, run_comparison
+    run_comparison(parse_named_adapters(args.adapters), preset=args.preset, model_name=args.model,
+                   output_dir=args.output_dir, max_tokens=args.max_tokens, challenge=not args.no_challenge)
 
 
 def cmd_eval(args):
@@ -220,6 +240,7 @@ def build_parser():
     group.add_argument("-c", "--config", help="Standalone MLX-LM YAML config (instead of a preset)")
     add_preset_argument(group)
     p.add_argument("--output-dir", help="Report root")
+    p.add_argument("--data", help="Directory with train/valid/test.jsonl (default: data/), e.g. a `dpo-mine` sft_plus control")
     p.add_argument("--iters", type=positive_int)
     p.add_argument("--batch-size", type=positive_int, help="Override training batch size")
     p.add_argument("--rank", type=positive_int, help="Override LoRA rank")
@@ -238,6 +259,37 @@ def build_parser():
     p.add_argument("--no-validate", action="store_true",
                    help="Skip the 5-tool schema pre-flight (for non-synthetic data, e.g. the BFCL split)")
     p.set_defaults(func=cmd_train)
+
+    p = sub.add_parser("dpo-mine", help="Mine preference pairs from the SFT adapter's own mistakes on fresh prompts")
+    _model_selection(p)
+    p.add_argument("--rollback", type=positive_int, default=240, help="Fresh rollback prompts to try (default: 240)")
+    p.add_argument("--other", type=positive_int, default=60, help="Fresh prompts for the other tools (default: 60)")
+    p.add_argument("--extra-draws", type=int, default=0,
+                   help="Sampled draws to look for a wrong answer where greedy was right (default: 0)")
+    p.add_argument("--temperature", type=float, default=0.8, help="Temperature for --extra-draws")
+    p.add_argument("--max-tokens", type=positive_int, default=150)
+    p.set_defaults(func=cmd_dpo_mine)
+
+    p = sub.add_parser("dpo", help="Continue the SFT adapter with the DPO loss on mined pairs")
+    _model_selection(p)
+    p.add_argument("--pairs", help="Directory from `dpo-mine` (default: the latest mining run)")
+    p.add_argument("--iters", type=positive_int, default=100)
+    p.add_argument("--batch-size", type=positive_int, default=4, help="Pairs per step (each pair is two sequences)")
+    p.add_argument("--learning-rate", type=float, default=5e-6)
+    p.add_argument("--beta", type=float, default=0.1, help="KL leash: higher stays closer to the SFT adapter")
+    p.add_argument("--sft-alpha", type=float, default=0.0, help="Weight of an NLL anchor on the chosen response")
+    p.add_argument("--steps-per-eval", type=positive_int, default=10)
+    p.add_argument("--seed", type=int, default=42)
+    p.set_defaults(func=cmd_dpo)
+
+    p = sub.add_parser("compare", help="Compare adapters (NAME=DIR ...; the first is the reference) with paired tests")
+    add_preset_argument(p)
+    p.add_argument("adapters", nargs="+", metavar="NAME=ADAPTER_DIR")
+    p.add_argument("--model", help="Custom base model path or Hugging Face repository")
+    p.add_argument("--max-tokens", type=positive_int, default=150)
+    p.add_argument("--no-challenge", action="store_true", help="Evaluate the holdout only")
+    p.add_argument("--output-dir", help="Report root (default: artifacts/qwen2.5-<size>)")
+    p.set_defaults(func=cmd_compare)
 
     p = sub.add_parser("eval", help="Compare base, few-shot, LoRA (and grammar-constrained or fused) models")
     _model_selection(p)

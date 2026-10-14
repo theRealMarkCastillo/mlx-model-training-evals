@@ -132,7 +132,7 @@ def resolve_adapter_source(model, adapter):
     manifest_path = Path(adapter).parent / 'manifest.json'
     if manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text())
-        if manifest.get('kind') == 'training':
+        if manifest.get('kind') in ('training', 'dpo'):  # both record the exact base snapshot they started from
             if manifest['model'] != model:
                 raise ValueError(f"Adapter was trained for {manifest['model']}, not {model}")
             source = manifest['model_source']

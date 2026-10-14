@@ -1,0 +1,1408 @@
+{
+  "model": "mlx-community/Qwen2.5-3B-Instruct-4bit",
+  "reference": "sft",
+  "adapters": {
+    "sft": "artifacts/qwen2.5-3b/runs/training-20261007T013812411802Z-7ad75c0f/adapters",
+    "control": "artifacts/qwen2.5-3b-control/runs/training-20261014T055632362155Z-7f89763d/adapters",
+    "dpo_full": "artifacts/qwen2.5-3b/runs/dpo-20261014T065010377707Z-ce4d4945/adapters",
+    "dpo_short": "artifacts/qwen2.5-3b/runs/dpo-20261014T072116320085Z-8eca8c2c/adapters",
+    "dpo_anchor": "artifacts/qwen2.5-3b/runs/dpo-20261014T072116320104Z-695661df/adapters"
+  },
+  "datasets": {
+    "test": {
+      "sft": {
+        "num_samples": 75,
+        "exact_match_rate": 1.0,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9512744540953,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "normalized_match_rate": [
+            0.9512744540953,
+            1.0
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 1.0,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "no_action": {
+            "reason": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 1.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 0
+        }
+      },
+      "control": {
+        "num_samples": 75,
+        "exact_match_rate": 0.96,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9512744540953,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.8888683137691623,
+            0.9863041839985135
+          ],
+          "normalized_match_rate": [
+            0.8888683137691623,
+            0.9863041839985135
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 0.9333333333333333,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "no_action": {
+            "reason": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 0.8666666666666667
+          },
+          "rollback_deployment": {
+            "deployment_id": 1.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 3
+        }
+      },
+      "dpo_full": {
+        "num_samples": 75,
+        "exact_match_rate": 0.7866666666666666,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9282646257525621,
+            0.997642509566863
+          ],
+          "exact_match_rate": [
+            0.6811982171013853,
+            0.86419913657992
+          ],
+          "normalized_match_rate": [
+            0.6811982171013853,
+            0.86419913657992
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 0.9333333333333333,
+            "version": 0.9333333333333333,
+            "environment": 0.9333333333333333,
+            "replicas": 0.9333333333333333,
+            "notify_channels": 0.9333333333333333
+          },
+          "no_action": {
+            "reason": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 1,
+          "omitted_default": 0,
+          "parameters": 15
+        }
+      },
+      "dpo_short": {
+        "num_samples": 75,
+        "exact_match_rate": 0.8266666666666667,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9282646257525621,
+            0.997642509566863
+          ],
+          "exact_match_rate": [
+            0.7256897902417947,
+            0.8958095197671345
+          ],
+          "normalized_match_rate": [
+            0.7256897902417947,
+            0.8958095197671345
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 0.9333333333333333,
+            "version": 0.9333333333333333,
+            "environment": 0.9333333333333333,
+            "replicas": 0.9333333333333333,
+            "notify_channels": 0.9333333333333333
+          },
+          "no_action": {
+            "reason": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.2,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 1,
+          "omitted_default": 0,
+          "parameters": 12
+        }
+      },
+      "dpo_anchor": {
+        "num_samples": 75,
+        "exact_match_rate": 0.7866666666666666,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9512744540953,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9282646257525621,
+            0.997642509566863
+          ],
+          "exact_match_rate": [
+            0.6811982171013853,
+            0.86419913657992
+          ],
+          "normalized_match_rate": [
+            0.6811982171013853,
+            0.86419913657992
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 0.9333333333333333,
+            "version": 0.9333333333333333,
+            "environment": 0.9333333333333333,
+            "replicas": 0.9333333333333333,
+            "notify_channels": 0.9333333333333333
+          },
+          "no_action": {
+            "reason": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 1,
+          "omitted_default": 0,
+          "parameters": 15
+        }
+      }
+    },
+    "challenge_abstain": {
+      "sft": {
+        "num_samples": 40,
+        "exact_match_rate": 0.95,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9123754607496077,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.834958291820748,
+            0.9861796228538989
+          ],
+          "normalized_match_rate": [
+            0.834958291820748,
+            0.9861796228538989
+          ]
+        },
+        "per_field": {
+          "no_action": {
+            "reason": 0.95
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 2
+        }
+      },
+      "control": {
+        "num_samples": 40,
+        "exact_match_rate": 0.925,
+        "schema_valid_rate": 0.975,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "tool_accuracy": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "exact_match_rate": [
+            0.8013546984090248,
+            0.9741644432281419
+          ],
+          "normalized_match_rate": [
+            0.8013546984090248,
+            0.9741644432281419
+          ]
+        },
+        "per_field": {
+          "no_action": {
+            "reason": 0.925
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 1,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 2
+        }
+      },
+      "dpo_full": {
+        "num_samples": 40,
+        "exact_match_rate": 0.95,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9123754607496077,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.834958291820748,
+            0.9861796228538989
+          ],
+          "normalized_match_rate": [
+            0.834958291820748,
+            0.9861796228538989
+          ]
+        },
+        "per_field": {
+          "no_action": {
+            "reason": 0.95
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 2
+        }
+      },
+      "dpo_short": {
+        "num_samples": 40,
+        "exact_match_rate": 0.95,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9123754607496077,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.834958291820748,
+            0.9861796228538989
+          ],
+          "normalized_match_rate": [
+            0.834958291820748,
+            0.9861796228538989
+          ]
+        },
+        "per_field": {
+          "no_action": {
+            "reason": 0.95
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 2
+        }
+      },
+      "dpo_anchor": {
+        "num_samples": 40,
+        "exact_match_rate": 0.95,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9123754607496077,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.834958291820748,
+            0.9861796228538989
+          ],
+          "normalized_match_rate": [
+            0.834958291820748,
+            0.9861796228538989
+          ]
+        },
+        "per_field": {
+          "no_action": {
+            "reason": 0.95
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 2
+        }
+      }
+    },
+    "challenge_defaults": {
+      "sft": {
+        "num_samples": 40,
+        "exact_match_rate": 1.0,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9123754607496077,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "normalized_match_rate": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 1.0,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 1.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 0
+        }
+      },
+      "control": {
+        "num_samples": 40,
+        "exact_match_rate": 0.975,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9123754607496077,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "normalized_match_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 0.9,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 1.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 1
+        }
+      },
+      "dpo_full": {
+        "num_samples": 40,
+        "exact_match_rate": 0.575,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.6804970794560755,
+            0.9125469700311694
+          ],
+          "exact_match_rate": [
+            0.42194800436059987,
+            0.7149083147518411
+          ],
+          "normalized_match_rate": [
+            0.42194800436059987,
+            0.7149083147518411
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 0.6,
+            "version": 0.6,
+            "environment": 0.6,
+            "replicas": 0.6,
+            "notify_channels": 0.6
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 0.7,
+            "node_count": 0.7,
+            "auto_scale": 0.7,
+            "instance_type": 0.7
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 7,
+          "omitted_default": 0,
+          "parameters": 10
+        }
+      },
+      "dpo_short": {
+        "num_samples": 40,
+        "exact_match_rate": 0.925,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.834958291820748,
+            0.9861796228538989
+          ],
+          "exact_match_rate": [
+            0.8013546984090248,
+            0.9741644432281419
+          ],
+          "normalized_match_rate": [
+            0.8013546984090248,
+            0.9741644432281419
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 1.0,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.9,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 0.8,
+            "node_count": 0.8,
+            "auto_scale": 0.8,
+            "instance_type": 0.8
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 2,
+          "omitted_default": 0,
+          "parameters": 1
+        }
+      },
+      "dpo_anchor": {
+        "num_samples": 40,
+        "exact_match_rate": 0.675,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.8013546984090248,
+            0.9741644432281419
+          ],
+          "exact_match_rate": [
+            0.52017458088898,
+            0.7991568303733828
+          ],
+          "normalized_match_rate": [
+            0.52017458088898,
+            0.7991568303733828
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 0.8,
+            "version": 0.8,
+            "environment": 0.8,
+            "replicas": 0.8,
+            "notify_channels": 0.8
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 0.9,
+            "node_count": 0.9,
+            "auto_scale": 0.9,
+            "instance_type": 0.9
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 3,
+          "omitted_default": 0,
+          "parameters": 10
+        }
+      }
+    },
+    "challenge_entities": {
+      "sft": {
+        "num_samples": 40,
+        "exact_match_rate": 0.75,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9123754607496077,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.598057409330299,
+            0.8581303210445048
+          ],
+          "normalized_match_rate": [
+            0.598057409330299,
+            0.8581303210445048
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 1.0,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 10
+        }
+      },
+      "control": {
+        "num_samples": 40,
+        "exact_match_rate": 0.975,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.9123754607496077,
+            1.0
+          ],
+          "exact_match_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "normalized_match_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 0.9,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 1.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 1.0,
+            "node_count": 1.0,
+            "auto_scale": 1.0,
+            "instance_type": 1.0
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 0,
+          "omitted_default": 0,
+          "parameters": 1
+        }
+      },
+      "dpo_full": {
+        "num_samples": 40,
+        "exact_match_rate": 0.725,
+        "schema_valid_rate": 0.75,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.598057409330299,
+            0.8581303210445048
+          ],
+          "tool_accuracy": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "exact_match_rate": [
+            0.5716474916687543,
+            0.8389214656685692
+          ],
+          "normalized_match_rate": [
+            0.5716474916687543,
+            0.8389214656685692
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 1.0,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.0,
+            "target_tag": 0.2,
+            "drain_traffic": 0.9
+          },
+          "scale_cluster": {
+            "cluster_name": 0.9,
+            "node_count": 0.9,
+            "auto_scale": 0.9,
+            "instance_type": 0.9
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 10,
+          "format": 0,
+          "tool": 1,
+          "omitted_default": 0,
+          "parameters": 0
+        }
+      },
+      "dpo_short": {
+        "num_samples": 40,
+        "exact_match_rate": 0.825,
+        "schema_valid_rate": 0.85,
+        "intervals": {
+          "pure_json_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "valid_json_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "schema_valid_rate": [
+            0.7092737396097997,
+            0.9293890829149256
+          ],
+          "tool_accuracy": [
+            0.834958291820748,
+            0.9861796228538989
+          ],
+          "exact_match_rate": [
+            0.6804970794560755,
+            0.9125469700311694
+          ],
+          "normalized_match_rate": [
+            0.6804970794560755,
+            0.9125469700311694
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 1.0,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 0.4,
+            "target_tag": 0.6,
+            "drain_traffic": 0.9
+          },
+          "scale_cluster": {
+            "cluster_name": 0.9,
+            "node_count": 0.9,
+            "auto_scale": 0.9,
+            "instance_type": 0.9
+          }
+        },
+        "error_categories": {
+          "json": 1,
+          "schema": 5,
+          "format": 0,
+          "tool": 1,
+          "omitted_default": 0,
+          "parameters": 0
+        }
+      },
+      "dpo_anchor": {
+        "num_samples": 40,
+        "exact_match_rate": 0.975,
+        "schema_valid_rate": 1.0,
+        "intervals": {
+          "pure_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "valid_json_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "schema_valid_rate": [
+            0.9123754607496077,
+            1.0
+          ],
+          "tool_accuracy": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "exact_match_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ],
+          "normalized_match_rate": [
+            0.8711834051199223,
+            0.9955732825922052
+          ]
+        },
+        "per_field": {
+          "deploy_service": {
+            "service": 1.0,
+            "version": 1.0,
+            "environment": 1.0,
+            "replicas": 1.0,
+            "notify_channels": 1.0
+          },
+          "restart_pod": {
+            "pod_name": 1.0,
+            "region": 1.0,
+            "force": 1.0,
+            "reason": 1.0
+          },
+          "rollback_deployment": {
+            "deployment_id": 1.0,
+            "target_tag": 1.0,
+            "drain_traffic": 1.0
+          },
+          "scale_cluster": {
+            "cluster_name": 0.9,
+            "node_count": 0.9,
+            "auto_scale": 0.9,
+            "instance_type": 0.9
+          }
+        },
+        "error_categories": {
+          "json": 0,
+          "schema": 0,
+          "format": 0,
+          "tool": 1,
+          "omitted_default": 0,
+          "parameters": 0
+        }
+      }
+    }
+  },
+  "paired_vs_reference": {
+    "test": {
+      "control": {
+        "both_correct": 72,
+        "only_a": 0,
+        "only_b": 3,
+        "neither": 0,
+        "p_value": 0.25
+      },
+      "dpo_full": {
+        "both_correct": 59,
+        "only_a": 0,
+        "only_b": 16,
+        "neither": 0,
+        "p_value": 3.0517578125e-05
+      },
+      "dpo_short": {
+        "both_correct": 62,
+        "only_a": 0,
+        "only_b": 13,
+        "neither": 0,
+        "p_value": 0.000244140625
+      },
+      "dpo_anchor": {
+        "both_correct": 59,
+        "only_a": 0,
+        "only_b": 16,
+        "neither": 0,
+        "p_value": 3.0517578125e-05
+      }
+    },
+    "challenge_abstain": {
+      "control": {
+        "both_correct": 36,
+        "only_a": 1,
+        "only_b": 2,
+        "neither": 1,
+        "p_value": 1.0
+      },
+      "dpo_full": {
+        "both_correct": 38,
+        "only_a": 0,
+        "only_b": 0,
+        "neither": 2,
+        "p_value": 1.0
+      },
+      "dpo_short": {
+        "both_correct": 38,
+        "only_a": 0,
+        "only_b": 0,
+        "neither": 2,
+        "p_value": 1.0
+      },
+      "dpo_anchor": {
+        "both_correct": 38,
+        "only_a": 0,
+        "only_b": 0,
+        "neither": 2,
+        "p_value": 1.0
+      }
+    },
+    "challenge_defaults": {
+      "control": {
+        "both_correct": 39,
+        "only_a": 0,
+        "only_b": 1,
+        "neither": 0,
+        "p_value": 1.0
+      },
+      "dpo_full": {
+        "both_correct": 23,
+        "only_a": 0,
+        "only_b": 17,
+        "neither": 0,
+        "p_value": 1.52587890625e-05
+      },
+      "dpo_short": {
+        "both_correct": 37,
+        "only_a": 0,
+        "only_b": 3,
+        "neither": 0,
+        "p_value": 0.25
+      },
+      "dpo_anchor": {
+        "both_correct": 27,
+        "only_a": 0,
+        "only_b": 13,
+        "neither": 0,
+        "p_value": 0.000244140625
+      }
+    },
+    "challenge_entities": {
+      "control": {
+        "both_correct": 29,
+        "only_a": 10,
+        "only_b": 1,
+        "neither": 0,
+        "p_value": 0.01171875
+      },
+      "dpo_full": {
+        "both_correct": 29,
+        "only_a": 0,
+        "only_b": 1,
+        "neither": 10,
+        "p_value": 1.0
+      },
+      "dpo_short": {
+        "both_correct": 29,
+        "only_a": 4,
+        "only_b": 1,
+        "neither": 6,
+        "p_value": 0.375
+      },
+      "dpo_anchor": {
+        "both_correct": 29,
+        "only_a": 10,
+        "only_b": 1,
+        "neither": 0,
+        "p_value": 0.01171875
+      }
+    }
+  },
+  "forgetting": {
+    "sft": {
+      "mean_loss": 1.2148557433392853,
+      "mean_delta_vs_base": -0.6086135072788844,
+      "sign_test": {
+        "increased": 7,
+        "decreased": 17,
+        "unchanged": 0,
+        "p_value": 0.06391465663909912
+      }
+    },
+    "control": {
+      "mean_loss": 1.2521316774655133,
+      "mean_delta_vs_base": -0.5713375731526563,
+      "sign_test": {
+        "increased": 6,
+        "decreased": 18,
+        "unchanged": 0,
+        "p_value": 0.022655844688415527
+      }
+    },
+    "dpo_full": {
+      "mean_loss": 1.3834593421779573,
+      "mean_delta_vs_base": -0.4400099084402124,
+      "sign_test": {
+        "increased": 10,
+        "decreased": 14,
+        "unchanged": 0,
+        "p_value": 0.5412561893463135
+      }
+    },
+    "dpo_short": {
+      "mean_loss": 1.2469402888479333,
+      "mean_delta_vs_base": -0.5765289617702365,
+      "sign_test": {
+        "increased": 8,
+        "decreased": 16,
+        "unchanged": 0,
+        "p_value": 0.15158963203430176
+      }
+    },
+    "dpo_anchor": {
+      "mean_loss": 1.3606852646917105,
+      "mean_delta_vs_base": -0.46278398592645925,
+      "sign_test": {
+        "increased": 10,
+        "decreased": 14,
+        "unchanged": 0,
+        "p_value": 0.5412561893463135
+      }
+    },
+    "base": {
+      "mean_loss": 1.8234692506181698
+    }
+  }
+}
