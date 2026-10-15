@@ -373,22 +373,24 @@ So the earlier sentence needs a qualifier: grammar buys the contract *when the m
 
 ### Which one should you deploy?
 
-Accuracy alone says the prompted 32B (97% on the holdout) is within noise of the trained 3B adapter (100%). Serving cost is where they differ. Every candidate below was scored on the same 195 requests (holdout plus the three challenge sets), single stream, greedy decoding, one Apple-silicon Mac; latency is per request, prefill included. Regenerate with `uv run python scripts/export_deployment.py` (output in [`docs/reference-run/deployment.json`](docs/reference-run/deployment.json)).
+Accuracy alone says the prompted 32B (97% on the holdout) is within noise of the trained 3B adapter (100%). Serving cost is where they differ. Every candidate below was scored on the same 195 requests (holdout plus the three challenge sets), single stream, greedy decoding, one Apple-silicon Mac; latency is per request, prefill included. "Continued" is the SFT adapter after continuing SFT on the mined pairs ([the DPO section](#preference-tuning-dpo-against-more-sft-data)), seed 42. Regenerate with `uv run python scripts/export_deployment.py` (output in [`docs/reference-run/deployment.json`](docs/reference-run/deployment.json)).
 
 | Candidate | `test` | `abstain` | `defaults` | `entities` | Latency median / p95 | TTFT | Decode | Prompt tokens | Weights |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 3B + LoRA (dynamic) | **100** | 95 | **100** | 75 | 0.98 / 1.08 s | 0.47 s | 73 tok/s | 664 | 1.7 GB |
-| **3B + LoRA (fused)** | **100** | **100** | **100** | 75 | **0.67 / 0.72 s** | 0.40 s | 144 tok/s | 664 | 1.7 GB |
+| 3B SFT adapter, dynamic | **100** | 95 | **100** | 75 | 0.98 / 1.08 s | 0.47 s | 73 tok/s | 664 | 1.7 GB |
+| 3B SFT adapter, fused | **100** | **100** | **100** | 75 | 0.67 / 0.72 s | 0.40 s | 144 tok/s | 664 | 1.7 GB |
+| 3B continued adapter, dynamic | **100** | 95 | **100** | 97.5 | 0.98 / 1.08 s | | 73 tok/s | 664 | 1.7 GB |
+| **3B continued adapter, fused** | **100** | **100** | **100** | **100** | **0.68 / 0.73 s** | 0.40 s | 144 tok/s | 664 | 1.7 GB |
 | 14B few-shot | 92 | 100 | 100 | **100** | 3.73 / 3.96 s | 2.78 s | 39 tok/s | 983 | 8.3 GB |
 | 32B few-shot | 97 | **100** | 97.5 | **100** | 9.13 / 9.55 s | 7.07 s | 18 tok/s | 983 | 18.4 GB |
 
-* **Fusing is free here.** Merging the adapter takes median latency from 0.98 s to 0.67 s and decode from 73 to 144 tok/s (the controlled benchmark agrees: 1.04 s vs 0.70 s, peak memory 2.7 GB vs 2.2 GB). Quality did not move: 100 / 100 / 100 / 75 against 100 / 95 / 100 / 75, the abstain difference being two records on 40.
-* **The fused 3B is about 5.6x faster than 14B few-shot and 13.6x faster than 32B** per request, in a fifth to a tenth of the weights memory, and it also sends a third fewer prompt tokens per request (664 vs 983), because it needs no demonstrations.
-* **What the larger models buy** is robustness on unseen entities (100 vs 75 for this adapter) without any training. That 75 is the SFT adapter's known failure, and [the DPO section](#preference-tuning-dpo-against-more-sft-data) shows continuing SFT on mined pairs lifts it to about 99%, at the same size and speed. The fused quality of that continued adapter was not re-measured.
+* **Fusing is free here.** Merging the adapter takes median latency from 0.98 s to 0.67 s and decode from 73 to 144 tok/s (the controlled benchmark agrees: 1.04 s vs 0.70 s, peak memory 2.7 GB vs 2.2 GB). Quality did not move on the holdout or `defaults`; the dynamic and fused rows differ by two records on `abstain` (95 vs 100) and, for the continued adapter, one on `entities` (97.5 vs 100).
+* **The fused continued adapter matches the larger models on every set** while being about 5.5x faster than 14B few-shot and 13x faster than 32B per request, in a fifth to a tenth of the weights memory, with a third fewer prompt tokens per request (664 vs 983) because it needs no demonstrations.
+* **What the larger models buy** is robustness on unseen entities without any training. The first SFT adapter's 75% there is its known failure; continuing SFT on the mined pairs closes it (97.5 dynamic, 100 fused) at the same size and speed.
 
-**Recommendation.** For this task and an Apple-silicon host, deploy the fused 3B adapter, trained with the mined-pair continuation. Use few-shot 32B only if you cannot train at all, or as an offline checker or labeller for the 3B model's outputs. Prompted 14B is dominated: it is slower and less accurate on the holdout than the fused 3B, and only wins on unseen entities, which the continued adapter closes.
+**Recommendation.** For this task and an Apple-silicon host, deploy the fused continued 3B adapter. Use few-shot 32B only if you cannot train at all, or as an offline checker or labeller for the 3B model's outputs. Prompted 14B is dominated: it is slower, less accurate on the holdout, and its one advantage (unseen entities) is closed by the continued adapter.
 
-Caveats: one machine and a single request at a time (batched serving changes the ratios, usually in favour of larger models' throughput per dollar, not per-request latency); weights size is the 4-bit safetensors on disk, not peak runtime memory for the 14B and 32B (peak was measured only for the 3B); the challenge sets have 40 records each; the task is synthetic.
+Caveats: the continued adapter is one seed here (its other two seeds scored 97.5–100 on `entities` unfused; see the DPO section), so treat 100 as the top of a 97.5–100 range; one machine and a single request at a time (batched serving changes the ratios, usually in favour of larger models' throughput per dollar, not per-request latency); weights size is the 4-bit safetensors on disk, not peak runtime memory for the 14B and 32B (peak was measured only for the 3B); the challenge sets have 40 records each; the task is synthetic.
 
 ### Real data: the BFCL pilot
 

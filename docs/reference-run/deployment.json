@@ -95,6 +95,100 @@
       "output_tokens_mean": 31.615384615384617,
       "weights_gb": 1.74
     },
+    "3b-continued-lora": {
+      "run_id": "20261015T161453127141Z-4d07f686",
+      "requests": 195,
+      "exact_match": {
+        "test": {
+          "n": 75,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9512744540953,
+            1.0
+          ]
+        },
+        "challenge_abstain": {
+          "n": 40,
+          "exact_match": 0.95,
+          "ci95": [
+            0.834958291820748,
+            0.9861796228538989
+          ]
+        },
+        "challenge_defaults": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_entities": {
+          "n": 40,
+          "exact_match": 0.975,
+          "ci95": [
+            0.8711834051199223,
+            0.9955732825922052
+          ]
+        }
+      },
+      "latency_seconds": {
+        "median": 0.980004166951403,
+        "p95": 1.0846246670698747
+      },
+      "ttft_seconds_median": 0.464573375065811,
+      "decode_tokens_per_sec_median": 72.15844885182098,
+      "prompt_tokens_mean": 663.7282051282051,
+      "output_tokens_mean": 31.620512820512822,
+      "weights_gb": 1.74
+    },
+    "3b-continued-fused": {
+      "run_id": "20261015T161453127141Z-4d07f686",
+      "requests": 195,
+      "exact_match": {
+        "test": {
+          "n": 75,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9512744540953,
+            1.0
+          ]
+        },
+        "challenge_abstain": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_defaults": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_entities": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        }
+      },
+      "latency_seconds": {
+        "median": 0.6772341670002788,
+        "p95": 0.7343694169539958
+      },
+      "ttft_seconds_median": 0.4136891249800101,
+      "decode_tokens_per_sec_median": 143.25379831061943,
+      "prompt_tokens_mean": 663.7282051282051,
+      "output_tokens_mean": 31.733333333333334,
+      "weights_gb": 1.74
+    },
     "14b-fewshot": {
       "run_id": "20261015T144402132694Z-2ef7ad4b",
       "requests": 195,
