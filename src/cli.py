@@ -90,6 +90,14 @@ def cmd_dpo_mix(args):
     run_mix(source=args.pairs, output_dir=args.output_dir, preset=args.preset, model_name=args.model, count=args.count)
 
 
+def cmd_grpo(args):
+    from src.grpo import run_grpo
+    run_grpo(preset=args.preset, model_name=args.model, adapter_path=args.adapter, output_dir=args.output_dir,
+             method=args.method, data_dir=args.data, iters=args.iters, prompts_per_step=args.prompts_per_step,
+             group_size=args.group_size, learning_rate=args.learning_rate, temperature=args.temperature,
+             max_tokens=args.max_tokens, micro_batch=args.micro_batch, steps_per_eval=args.steps_per_eval, seed=args.seed)
+
+
 def cmd_dpo(args):
     from src.dpo import run_dpo
     run_dpo(preset=args.preset, model_name=args.model, adapter_path=args.adapter, output_dir=args.output_dir,
@@ -275,6 +283,22 @@ def build_parser():
     p.add_argument("--temperature", type=float, default=0.8, help="Temperature for --extra-draws")
     p.add_argument("--max-tokens", type=positive_int, default=150)
     p.set_defaults(func=cmd_dpo_mine)
+
+    p = sub.add_parser("grpo", help="RL from the exact-match reward (GRPO), or matched continued SFT, from a start adapter")
+    _model_selection(p)
+    p.add_argument("--method", choices=("grpo", "sft"), default="grpo",
+                   help="grpo: sampled groups rewarded by exact match; sft: cross-entropy on the same prompts' gold calls")
+    p.add_argument("--data", help="Directory with train.jsonl and valid.jsonl (default: data/)")
+    p.add_argument("--iters", type=positive_int, default=50)
+    p.add_argument("--prompts-per-step", type=positive_int, default=4)
+    p.add_argument("--group-size", type=positive_int, default=8, help="Samples per prompt (grpo only)")
+    p.add_argument("--learning-rate", type=float, default=2e-5)
+    p.add_argument("--temperature", type=float, default=1.0, help="Sampling temperature for rollouts (grpo only)")
+    p.add_argument("--max-tokens", type=positive_int, default=150)
+    p.add_argument("--micro-batch", type=positive_int, default=8, help="Sequences per forward/backward pass (memory)")
+    p.add_argument("--steps-per-eval", type=positive_int, default=10)
+    p.add_argument("--seed", type=int, default=42)
+    p.set_defaults(func=cmd_grpo)
 
     p = sub.add_parser("dpo-mix", help="Add synthetic in-distribution (dep-NNNN) rollback pairs to a mining run")
     _model_selection(p)

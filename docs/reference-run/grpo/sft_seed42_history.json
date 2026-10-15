@@ -1,0 +1,303 @@
+{
+  "config": {
+    "method": "sft",
+    "iters": 50,
+    "prompts_per_step": 4,
+    "group_size": 8,
+    "learning_rate": 2e-05,
+    "temperature": 1.0,
+    "max_tokens": 150,
+    "micro_batch": 8,
+    "steps_per_eval": 10,
+    "seed": 42,
+    "data_dir": "/Users/markcastillo/git/mlx-model-training-evals/data"
+  },
+  "summary": {
+    "initial_valid_exact_match": 0.76,
+    "final_valid_exact_match": 0.94,
+    "training_time_seconds": 347.42,
+    "peak_memory_mb": 16723.27
+  },
+  "history": [
+    {
+      "type": "valid",
+      "iteration": 0,
+      "greedy_exact_match": 0.76
+    },
+    {
+      "type": "train",
+      "iteration": 1,
+      "loss": 0.004521545954048634
+    },
+    {
+      "type": "train",
+      "iteration": 2,
+      "loss": 0.12827421724796295
+    },
+    {
+      "type": "train",
+      "iteration": 3,
+      "loss": 0.0035756882280111313
+    },
+    {
+      "type": "train",
+      "iteration": 4,
+      "loss": 0.03514867275953293
+    },
+    {
+      "type": "train",
+      "iteration": 5,
+      "loss": 0.050828274339437485
+    },
+    {
+      "type": "train",
+      "iteration": 6,
+      "loss": 0.01740199141204357
+    },
+    {
+      "type": "train",
+      "iteration": 7,
+      "loss": 0.016561880707740784
+    },
+    {
+      "type": "train",
+      "iteration": 8,
+      "loss": 0.002461405470967293
+    },
+    {
+      "type": "train",
+      "iteration": 9,
+      "loss": 0.044260043650865555
+    },
+    {
+      "type": "train",
+      "iteration": 10,
+      "loss": 0.13585549592971802
+    },
+    {
+      "type": "valid",
+      "iteration": 10,
+      "greedy_exact_match": 0.84
+    },
+    {
+      "type": "train",
+      "iteration": 11,
+      "loss": 0.03241380676627159
+    },
+    {
+      "type": "train",
+      "iteration": 12,
+      "loss": 0.00035869074054062366
+    },
+    {
+      "type": "train",
+      "iteration": 13,
+      "loss": 0.10703540593385696
+    },
+    {
+      "type": "train",
+      "iteration": 14,
+      "loss": 0.056313008069992065
+    },
+    {
+      "type": "train",
+      "iteration": 15,
+      "loss": 0.029755784198641777
+    },
+    {
+      "type": "train",
+      "iteration": 16,
+      "loss": 0.0344177782535553
+    },
+    {
+      "type": "train",
+      "iteration": 17,
+      "loss": 0.018824759870767593
+    },
+    {
+      "type": "train",
+      "iteration": 18,
+      "loss": 0.11322654783725739
+    },
+    {
+      "type": "train",
+      "iteration": 19,
+      "loss": 0.01981772854924202
+    },
+    {
+      "type": "train",
+      "iteration": 20,
+      "loss": 0.02241760864853859
+    },
+    {
+      "type": "valid",
+      "iteration": 20,
+      "greedy_exact_match": 0.82
+    },
+    {
+      "type": "train",
+      "iteration": 21,
+      "loss": 0.01269975584000349
+    },
+    {
+      "type": "train",
+      "iteration": 22,
+      "loss": 0.0014494056813418865
+    },
+    {
+      "type": "train",
+      "iteration": 23,
+      "loss": 0.048149000853300095
+    },
+    {
+      "type": "train",
+      "iteration": 24,
+      "loss": 0.014306465163826942
+    },
+    {
+      "type": "train",
+      "iteration": 25,
+      "loss": 0.008224114775657654
+    },
+    {
+      "type": "train",
+      "iteration": 26,
+      "loss": 0.028903087601065636
+    },
+    {
+      "type": "train",
+      "iteration": 27,
+      "loss": 0.00202172645367682
+    },
+    {
+      "type": "train",
+      "iteration": 28,
+      "loss": 0.0157818254083395
+    },
+    {
+      "type": "train",
+      "iteration": 29,
+      "loss": 0.002484044060111046
+    },
+    {
+      "type": "train",
+      "iteration": 30,
+      "loss": 0.002693920861929655
+    },
+    {
+      "type": "valid",
+      "iteration": 30,
+      "greedy_exact_match": 0.94
+    },
+    {
+      "type": "train",
+      "iteration": 31,
+      "loss": 0.002324196742847562
+    },
+    {
+      "type": "train",
+      "iteration": 32,
+      "loss": 0.026818716898560524
+    },
+    {
+      "type": "train",
+      "iteration": 33,
+      "loss": 0.008471154607832432
+    },
+    {
+      "type": "train",
+      "iteration": 34,
+      "loss": 0.006665624212473631
+    },
+    {
+      "type": "train",
+      "iteration": 35,
+      "loss": 0.042253077030181885
+    },
+    {
+      "type": "train",
+      "iteration": 36,
+      "loss": 0.0023135021328926086
+    },
+    {
+      "type": "train",
+      "iteration": 37,
+      "loss": 0.007689453661441803
+    },
+    {
+      "type": "train",
+      "iteration": 38,
+      "loss": 0.030260827392339706
+    },
+    {
+      "type": "train",
+      "iteration": 39,
+      "loss": 0.043282896280288696
+    },
+    {
+      "type": "train",
+      "iteration": 40,
+      "loss": 0.00344944279640913
+    },
+    {
+      "type": "valid",
+      "iteration": 40,
+      "greedy_exact_match": 0.92
+    },
+    {
+      "type": "train",
+      "iteration": 41,
+      "loss": 0.0053987340070307255
+    },
+    {
+      "type": "train",
+      "iteration": 42,
+      "loss": 0.000404576538130641
+    },
+    {
+      "type": "train",
+      "iteration": 43,
+      "loss": 0.0034702434204518795
+    },
+    {
+      "type": "train",
+      "iteration": 44,
+      "loss": 0.01941433735191822
+    },
+    {
+      "type": "train",
+      "iteration": 45,
+      "loss": 0.0004158910596743226
+    },
+    {
+      "type": "train",
+      "iteration": 46,
+      "loss": 0.00028591134469024837
+    },
+    {
+      "type": "train",
+      "iteration": 47,
+      "loss": 6.700321682728827e-05
+    },
+    {
+      "type": "train",
+      "iteration": 48,
+      "loss": 0.001795195508748293
+    },
+    {
+      "type": "train",
+      "iteration": 49,
+      "loss": 0.00021959689911454916
+    },
+    {
+      "type": "train",
+      "iteration": 50,
+      "loss": 0.00015800406981725246
+    },
+    {
+      "type": "valid",
+      "iteration": 50,
+      "greedy_exact_match": 0.94
+    }
+  ]
+}

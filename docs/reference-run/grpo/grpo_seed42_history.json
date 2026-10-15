@@ -1,0 +1,453 @@
+{
+  "config": {
+    "method": "grpo",
+    "iters": 50,
+    "prompts_per_step": 4,
+    "group_size": 8,
+    "learning_rate": 2e-05,
+    "temperature": 1.0,
+    "max_tokens": 150,
+    "micro_batch": 8,
+    "steps_per_eval": 10,
+    "seed": 42,
+    "data_dir": "/Users/markcastillo/git/mlx-model-training-evals/data"
+  },
+  "summary": {
+    "initial_valid_exact_match": 0.76,
+    "final_valid_exact_match": 0.84,
+    "training_time_seconds": 1325.72,
+    "peak_memory_mb": 35954.0
+  },
+  "history": [
+    {
+      "type": "valid",
+      "iteration": 0,
+      "greedy_exact_match": 0.76
+    },
+    {
+      "type": "train",
+      "iteration": 1,
+      "mean_reward": 0.96875,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.047476448118686676
+    },
+    {
+      "type": "train",
+      "iteration": 2,
+      "mean_reward": 0.28125,
+      "valid_json": 0.96875,
+      "groups_with_signal": 0.75,
+      "loss": -0.07798616774380207
+    },
+    {
+      "type": "train",
+      "iteration": 3,
+      "mean_reward": 0.90625,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.75,
+      "loss": -0.06332238018512726
+    },
+    {
+      "type": "train",
+      "iteration": 4,
+      "mean_reward": 0.6875,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.5,
+      "loss": -0.05381629802286625
+    },
+    {
+      "type": "train",
+      "iteration": 5,
+      "mean_reward": 0.53125,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.5,
+      "loss": -0.025415316224098206
+    },
+    {
+      "type": "train",
+      "iteration": 6,
+      "mean_reward": 0.53125,
+      "valid_json": 0.96875,
+      "groups_with_signal": 0.25,
+      "loss": 0.02536320500075817
+    },
+    {
+      "type": "train",
+      "iteration": 7,
+      "mean_reward": 0.875,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.014258399605751038
+    },
+    {
+      "type": "train",
+      "iteration": 8,
+      "mean_reward": 0.84375,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": 0.0028137224726378918
+    },
+    {
+      "type": "train",
+      "iteration": 9,
+      "mean_reward": 0.8125,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": 0.06544626504182816
+    },
+    {
+      "type": "train",
+      "iteration": 10,
+      "mean_reward": 0.75,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "valid",
+      "iteration": 10,
+      "greedy_exact_match": 0.76
+    },
+    {
+      "type": "train",
+      "iteration": 11,
+      "mean_reward": 0.625,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.07927572727203369
+    },
+    {
+      "type": "train",
+      "iteration": 12,
+      "mean_reward": 0.90625,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.5,
+      "loss": -0.03583818394690752
+    },
+    {
+      "type": "train",
+      "iteration": 13,
+      "mean_reward": 0.65625,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.5,
+      "loss": -0.03933217888697982
+    },
+    {
+      "type": "train",
+      "iteration": 14,
+      "mean_reward": 0.5625,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.05385786294937134
+    },
+    {
+      "type": "train",
+      "iteration": 15,
+      "mean_reward": 0.75,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 16,
+      "mean_reward": 0.4375,
+      "valid_json": 0.96875,
+      "groups_with_signal": 0.25,
+      "loss": -0.016796521842479706
+    },
+    {
+      "type": "train",
+      "iteration": 17,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 18,
+      "mean_reward": 0.53125,
+      "valid_json": 0.96875,
+      "groups_with_signal": 0.75,
+      "loss": -0.035940247937105596
+    },
+    {
+      "type": "train",
+      "iteration": 19,
+      "mean_reward": 0.8125,
+      "valid_json": 0.96875,
+      "groups_with_signal": 0.25,
+      "loss": -0.08265691995620728
+    },
+    {
+      "type": "train",
+      "iteration": 20,
+      "mean_reward": 0.4375,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.04273248091340065
+    },
+    {
+      "type": "valid",
+      "iteration": 20,
+      "greedy_exact_match": 0.72
+    },
+    {
+      "type": "train",
+      "iteration": 21,
+      "mean_reward": 0.59375,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.014993183314800262
+    },
+    {
+      "type": "train",
+      "iteration": 22,
+      "mean_reward": 0.75,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 23,
+      "mean_reward": 0.71875,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.02579699270427227
+    },
+    {
+      "type": "train",
+      "iteration": 24,
+      "mean_reward": 0.59375,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": 0.05497727170586586
+    },
+    {
+      "type": "train",
+      "iteration": 25,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 26,
+      "mean_reward": 0.75,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 27,
+      "mean_reward": 0.75,
+      "valid_json": 0.78125,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 28,
+      "mean_reward": 0.5,
+      "valid_json": 0.84375,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 29,
+      "mean_reward": 0.90625,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.03829394280910492
+    },
+    {
+      "type": "train",
+      "iteration": 30,
+      "mean_reward": 0.75,
+      "valid_json": 0.8125,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "valid",
+      "iteration": 30,
+      "greedy_exact_match": 0.8
+    },
+    {
+      "type": "train",
+      "iteration": 31,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 32,
+      "mean_reward": 0.4375,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.5,
+      "loss": -0.049555426463484764
+    },
+    {
+      "type": "train",
+      "iteration": 33,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 34,
+      "mean_reward": 0.75,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 35,
+      "mean_reward": 0.75,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 36,
+      "mean_reward": 0.5,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 37,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 38,
+      "mean_reward": 0.5,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 39,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 40,
+      "mean_reward": 0.5,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "valid",
+      "iteration": 40,
+      "greedy_exact_match": 0.84
+    },
+    {
+      "type": "train",
+      "iteration": 41,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 42,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 43,
+      "mean_reward": 0.9375,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": -0.029251258820295334
+    },
+    {
+      "type": "train",
+      "iteration": 44,
+      "mean_reward": 0.75,
+      "valid_json": 0.96875,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 45,
+      "mean_reward": 0.9375,
+      "valid_json": 0.9375,
+      "groups_with_signal": 0.25,
+      "loss": -0.02049914188683033
+    },
+    {
+      "type": "train",
+      "iteration": 46,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 47,
+      "mean_reward": 1.0,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 48,
+      "mean_reward": 0.59375,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.25,
+      "loss": 0.0054777017794549465
+    },
+    {
+      "type": "train",
+      "iteration": 49,
+      "mean_reward": 0.75,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "train",
+      "iteration": 50,
+      "mean_reward": 0.75,
+      "valid_json": 1.0,
+      "groups_with_signal": 0.0,
+      "loss": 0.0
+    },
+    {
+      "type": "valid",
+      "iteration": 50,
+      "greedy_exact_match": 0.84
+    }
+  ]
+}

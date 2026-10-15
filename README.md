@@ -255,6 +255,7 @@ The reference adapter's one measured failure is `rollback_deployment` on unseen 
 SFT=artifacts/qwen2.5-3b/runs/training-<id>/adapters         # the adapter being repaired (pass it explicitly)
 uv run python main.py dpo-mine --adapter $SFT                # fresh prompts, new entities and id formats → (chosen, rejected) pairs
 uv run python main.py dpo-mix --pairs <mine-run>               # add synthetic in-distribution (dep-NNNN) rollback pairs
+uv run python main.py grpo --adapter $WEAK --method grpo     # RL from the exact-match reward (or --method sft for the matched control)
 uv run python main.py dpo --adapter $SFT                     # continue the adapter with the DPO loss
 uv run python main.py train --config my-control.yaml         # control: SFT on the *same prompts'* gold calls (data in the mining run's sft_plus/)
 uv run python main.py compare sft=$SFT control=<dir> dpo=<dir>   # paired tests, targeted field, envelope validity, forgetting
@@ -317,6 +318,39 @@ The seed-42 control looked competitive because it was the best of its three. The
 Continued SFT reaches the same accuracy with a smaller forgetting cost, and each seed's gain on `challenge_entities` is significant against SFT (+10/−1 or +10/−0, p ≤ 0.012). So the preference term adds nothing measurable on this task. The earlier control's variance came from retraining from scratch, not from SFT as such, and the "three seeds" table above overstated DPO's advantage. This task has one correct answer per prompt, which is what SFT is built for.
 
 Two things nearly invalidated the experiment, and both are checked in code now: `mlx_lm.load(..., adapter_path=...)` leaves the base model's biases and norm weights trainable (`freeze_all_but_lora` freezes them and verifies the trainable names equal the SFT adapter's), and a loaded adapter's float16 LoRA matrices turn AdamW's `eps` into zero (NaN loss within ten steps), so they are trained in float32. Separately, `latest.json` points at whichever run *finished last*, which here was a 5-iteration smoke test; pass `--adapter` explicitly to anything that matters.
+
+### RL from a verifiable reward (GRPO) against SFT
+
+DPO needs pairs; RL needs only a reward. Here the reward is the exact-match check the evaluation already uses (1 if the sampled call equals the expected call, else 0), and the gold answer is used inside the reward but never as a training target. `src/grpo.py` implements GRPO from scratch on `mlx_lm.generate.batch_generate`: sample 8 completions per prompt, standardise rewards within each group, and push up the completions that beat their own group's average. Because the update is on-policy there is no clipping or KL term.
+
+```bash
+uv run python main.py grpo --adapter $WEAK --method grpo --iters 50 --seed 42   # RL from the exact-match reward
+uv run python main.py grpo --adapter $WEAK --method sft  --iters 50 --seed 42   # same prompts, order, optimiser, lr; cross-entropy on gold
+```
+
+`--method sft` minimises the same expression with weight 1 instead of the group advantage, so the two arms differ only in where the learning signal comes from.
+
+**First finding: RL cannot start from the adapter whose failure we care about.** On 16 mined rollback prompts the 100%-accurate SFT adapter produced the exactly-right call in 0.8% of 128 samples at temperature 1.0 and 1.6% at 1.6 (where the JSON also starts to break). It is locked into writing `dep-NNNN`; sampling does not find the right answer, and groups whose samples all score 0 contribute nothing. SFT and DPO fix this failure because they *show* the answer; RL has to find it by exploration, and here it essentially cannot.
+
+So the comparison starts from a deliberately under-trained adapter (5 SFT iterations; 53% exact at temperature 1.0, with reward variance on 9 of 16 prompts), where RL has signal. Both arms train 50 steps of 4 prompts from `data/train.jsonl`, learning rate 2e-5, 3 seeds. Exact match %, mean [min–max] over seeds:
+
+| Set (n) | Start | SFT | GRPO |
+|---|---:|---:|---:|
+| `test` (75) | 77.3 | **92.4** [88.0–94.7] | 86.7 [86.7–86.7] |
+| `challenge_abstain` (40) | 65.0 | **97.5** [92.5–100] | 92.5 [80–100] |
+| `challenge_defaults` (40) | 72.5 | 98.3 [97.5–100] | 97.5 [97.5–97.5] |
+| `challenge_entities` (40) | 85.0 | 93.3 [92.5–95] | **96.7** [95–97.5] |
+| held-out greedy accuracy during training (50 prompts) | 76 | **96** [94–98] | 85.3 [84–86] |
+| general-request loss (base 1.82) | 1.51 | 1.56–1.58 | 1.68–1.77 |
+| time per run / peak memory | | 6 min / 16 GB | 21 min / 32–35 GB |
+
+What it shows:
+
+* **Both improve on the start, and SFT improves more, faster and cheaper** on in-distribution prompts (`test` +15 vs +9 points; every SFT seed is significantly better than the start on `test`, p ≤ 0.008, and so is every GRPO seed, p ≤ 0.039). GRPO sees 8x as many sequences per step and still lands lower.
+* **GRPO is nominally ahead only on unseen entities** (96.7 vs 93.3), which is the pattern people cite for RL generalising where SFT memorises. The gap is one or two records out of 40 and neither arm's gain over the start is significant there (p ≥ 0.06), so this is a hint, not a finding.
+* **GRPO forgets more.** Both stay below the base model's general-request loss (1.82), but GRPO moves further from the start (1.51) than SFT does.
+
+Caveats: one learning rate and one temperature, no sweep; 50 steps (200 prompt visits); the start adapter is artificial; compute is not matched between arms (GRPO generates 32 samples per step); 3 seeds on 40-record challenge sets. With a verifiable reward and a gold answer for every prompt, SFT is the efficient tool; RL's case is tasks where a reward exists and gold answers do not.
 
 ### Does scale close the gap?
 
@@ -504,6 +538,7 @@ Defaults resolve **only** through `latest.json` pointers. If no training run has
 | `src/constrained.py` | schema-derived JSON grammar and the logits mask for grammar-constrained decoding |
 | `src/forgetting.py` | general-capability loss comparison (base vs LoRA) with an exact sign test |
 | `src/dpo.py` | preference-pair mining, DPO loss and trainer (reference = step-0 policy), SFT control data |
+| `src/grpo.py` | GRPO from a verifiable reward and its matched SFT arm, on `mlx_lm` batched generation |
 | `src/compare.py` | side-by-side adapter comparison: exact match, paired McNemar, targeted field, forgetting |
 | `src/ablation.py`, `src/benchmark.py`, `src/fuse.py` | sweeps, speed, fusion |
 | `src/runs.py` | run directories, manifests, latest pointers |
