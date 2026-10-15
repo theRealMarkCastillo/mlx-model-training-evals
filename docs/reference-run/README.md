@@ -37,3 +37,7 @@ Follow-up (`dpo-mix`): `comparison_mixed_summary.json` / `comparison_mixed.png` 
 ## `grpo/`
 
 `comparison_summary.json` / `comparison.png`: the under-trained start adapter, three seeds of matched SFT and three of GRPO, on the holdout and challenge sets, with forgetting. `*_seed42_curves.png` / `*_seed42_history.json`: held-out greedy accuracy and rollout statistics during training for seed 42.
+
+## `deployment.json`
+
+Per-candidate accuracy on the holdout and challenge sets, per-request latency, TTFT, decode speed, prompt tokens and weights size for the 3B adapter (dynamic and fused) against prompted 14B and 32B, plus the controlled 3B benchmark. Regenerate with `scripts/export_deployment.py`.

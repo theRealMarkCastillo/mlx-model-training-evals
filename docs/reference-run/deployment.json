@@ -1,0 +1,463 @@
+{
+  "hardware_note": "single stream, greedy, one Apple-silicon Mac; latencies are per request including prefill",
+  "candidates": {
+    "3b-lora": {
+      "run_id": "20261015T155816862509Z-7ac38d05",
+      "requests": 195,
+      "exact_match": {
+        "test": {
+          "n": 75,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9512744540953,
+            1.0
+          ]
+        },
+        "challenge_abstain": {
+          "n": 40,
+          "exact_match": 0.95,
+          "ci95": [
+            0.834958291820748,
+            0.9861796228538989
+          ]
+        },
+        "challenge_defaults": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_entities": {
+          "n": 40,
+          "exact_match": 0.75,
+          "ci95": [
+            0.598057409330299,
+            0.8581303210445048
+          ]
+        }
+      },
+      "latency_seconds": {
+        "median": 0.9773974999552593,
+        "p95": 1.078354416997172
+      },
+      "ttft_seconds_median": 0.46902116609271616,
+      "decode_tokens_per_sec_median": 72.77013227565362,
+      "prompt_tokens_mean": 663.7282051282051,
+      "output_tokens_mean": 31.625641025641027,
+      "weights_gb": 1.74
+    },
+    "3b-lora-fused": {
+      "run_id": "20261015T155816862509Z-7ac38d05",
+      "requests": 195,
+      "exact_match": {
+        "test": {
+          "n": 75,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9512744540953,
+            1.0
+          ]
+        },
+        "challenge_abstain": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_defaults": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_entities": {
+          "n": 40,
+          "exact_match": 0.75,
+          "ci95": [
+            0.598057409330299,
+            0.8581303210445048
+          ]
+        }
+      },
+      "latency_seconds": {
+        "median": 0.6663518340792507,
+        "p95": 0.7200525000225753
+      },
+      "ttft_seconds_median": 0.4044968340313062,
+      "decode_tokens_per_sec_median": 144.42214579993856,
+      "prompt_tokens_mean": 663.7282051282051,
+      "output_tokens_mean": 31.615384615384617,
+      "weights_gb": 1.74
+    },
+    "14b-fewshot": {
+      "run_id": "20261015T144402132694Z-2ef7ad4b",
+      "requests": 195,
+      "exact_match": {
+        "test": {
+          "n": 75,
+          "exact_match": 0.92,
+          "ci95": [
+            0.8362501593344202,
+            0.9628203821056319
+          ]
+        },
+        "challenge_abstain": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_defaults": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_entities": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        }
+      },
+      "latency_seconds": {
+        "median": 3.731641500024125,
+        "p95": 3.95507720799651
+      },
+      "ttft_seconds_median": 2.7821836670627818,
+      "decode_tokens_per_sec_median": 38.817688683154714,
+      "prompt_tokens_mean": 982.7282051282051,
+      "output_tokens_mean": 32.261538461538464,
+      "weights_gb": 8.31
+    },
+    "32b-fewshot": {
+      "run_id": "20261015T150541616815Z-7c275fba",
+      "requests": 195,
+      "exact_match": {
+        "test": {
+          "n": 75,
+          "exact_match": 0.9733333333333334,
+          "ci95": [
+            0.9078833515671513,
+            0.9926564649763995
+          ]
+        },
+        "challenge_abstain": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        },
+        "challenge_defaults": {
+          "n": 40,
+          "exact_match": 0.975,
+          "ci95": [
+            0.8711834051199223,
+            0.9955732825922052
+          ]
+        },
+        "challenge_entities": {
+          "n": 40,
+          "exact_match": 1.0,
+          "ci95": [
+            0.9123754607496077,
+            1.0
+          ]
+        }
+      },
+      "latency_seconds": {
+        "median": 9.13148641702719,
+        "p95": 9.552576833986677
+      },
+      "ttft_seconds_median": 7.066943333018571,
+      "decode_tokens_per_sec_median": 18.316457646217106,
+      "prompt_tokens_mean": 982.7282051282051,
+      "output_tokens_mean": 31.8,
+      "weights_gb": 18.43
+    }
+  },
+  "benchmark_3b": {
+    "base_stats": {
+      "avg_ttft_seconds": 0.4054645750205964,
+      "avg_latency_seconds": 0.7394279002211988,
+      "avg_prefill_tokens_per_sec": 1645.2540835409334,
+      "avg_decode_tokens_per_sec": 143.1269270906735,
+      "avg_end_to_end_tokens_per_sec": 63.563427074368825,
+      "avg_output_tokens": 47,
+      "avg_prompt_tokens": 666,
+      "min_ttft_seconds": 0.40292525000404567,
+      "max_ttft_seconds": 0.4069969999836758,
+      "std_ttft_seconds": 0.0014824691203125324,
+      "min_latency_seconds": 0.7357040420174599,
+      "max_latency_seconds": 0.7435126670170575,
+      "std_latency_seconds": 0.0025790478399109317,
+      "min_prefill_tokens_per_sec": 1638.5508847649846,
+      "max_prefill_tokens_per_sec": 1655.779033112932,
+      "std_prefill_tokens_per_sec": 6.128417266429254,
+      "min_decode_tokens_per_sec": 142.13564586733003,
+      "max_decode_tokens_per_sec": 144.19929551751918,
+      "std_decode_tokens_per_sec": 0.7209628906927971,
+      "min_end_to_end_tokens_per_sec": 63.21344892288396,
+      "max_end_to_end_tokens_per_sec": 63.88438463803436,
+      "std_end_to_end_tokens_per_sec": 0.2215609600205715,
+      "min_output_tokens": 47,
+      "max_output_tokens": 47,
+      "std_output_tokens": 0.0,
+      "min_prompt_tokens": 666,
+      "max_prompt_tokens": 666,
+      "std_prompt_tokens": 0.0,
+      "peak_metal_memory_mb": 2246.0729942321777,
+      "active_metal_memory_mb": 1655.7734451293945,
+      "runs": [
+        {
+          "raw_output": "{\"deploy_service\": {\"service\": \"auth-api\", \"version\": \"v3.12.0\", \"environment\": \"production\", \"replicas\": 5, \"notify_channels\": [\"#deployments\"]}}",
+          "output_tokens": 47,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.40292525000404567,
+          "latency_seconds": 0.7357040420174599,
+          "prefill_tokens_per_sec": 1655.779033112932,
+          "decode_tokens_per_sec": 143.63717834170552,
+          "end_to_end_tokens_per_sec": 63.88438463803436,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"deploy_service\": {\"service\": \"auth-api\", \"version\": \"v3.12.0\", \"environment\": \"production\", \"replicas\": 5, \"notify_channels\": [\"#deployments\"]}}",
+          "output_tokens": 47,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.40672333305701613,
+          "latency_seconds": 0.7382497920189053,
+          "prefill_tokens_per_sec": 1640.301500463499,
+          "decode_tokens_per_sec": 144.19929551751918,
+          "end_to_end_tokens_per_sec": 63.66408837240338,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"deploy_service\": {\"service\": \"auth-api\", \"version\": \"v3.12.0\", \"environment\": \"production\", \"replicas\": 5, \"notify_channels\": [\"#deployments\"]}}",
+          "output_tokens": 47,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.4069969999836758,
+          "latency_seconds": 0.7435126670170575,
+          "prefill_tokens_per_sec": 1638.5508847649846,
+          "decode_tokens_per_sec": 142.13564586733003,
+          "end_to_end_tokens_per_sec": 63.21344892288396,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"deploy_service\": {\"service\": \"auth-api\", \"version\": \"v3.12.0\", \"environment\": \"production\", \"replicas\": 5, \"notify_channels\": [\"#deployments\"]}}",
+          "output_tokens": 47,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.405875249998644,
+          "latency_seconds": 0.7405376250389963,
+          "prefill_tokens_per_sec": 1643.960389185831,
+          "decode_tokens_per_sec": 142.70650206384872,
+          "end_to_end_tokens_per_sec": 63.4674031552752,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"deploy_service\": {\"service\": \"auth-api\", \"version\": \"v3.12.0\", \"environment\": \"production\", \"replicas\": 5, \"notify_channels\": [\"#deployments\"]}}",
+          "output_tokens": 47,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.40480204205960035,
+          "latency_seconds": 0.739135375013575,
+          "prefill_tokens_per_sec": 1647.67861017742,
+          "decode_tokens_per_sec": 142.956013662964,
+          "end_to_end_tokens_per_sec": 63.58781028324723,
+          "finish_reason": "stop"
+        }
+      ]
+    },
+    "lora_stats": {
+      "avg_ttft_seconds": 0.4629612582037225,
+      "avg_latency_seconds": 1.040020333393477,
+      "avg_prefill_tokens_per_sec": 1441.5364589958465,
+      "avg_decode_tokens_per_sec": 71.86468922635038,
+      "avg_end_to_end_tokens_per_sec": 39.42331679404608,
+      "avg_output_tokens": 41,
+      "avg_prompt_tokens": 666,
+      "min_ttft_seconds": 0.4537627500249073,
+      "max_ttft_seconds": 0.4703474580310285,
+      "std_ttft_seconds": 0.006050976555037843,
+      "min_latency_seconds": 1.0322306249290705,
+      "max_latency_seconds": 1.0479294169927016,
+      "std_latency_seconds": 0.005266056843088884,
+      "min_prefill_tokens_per_sec": 1419.603623302572,
+      "max_prefill_tokens_per_sec": 1470.0493986427057,
+      "std_prefill_tokens_per_sec": 18.545429697689062,
+      "min_decode_tokens_per_sec": 69.79264413887702,
+      "max_decode_tokens_per_sec": 72.44527703096048,
+      "std_decode_tokens_per_sec": 1.0370607578410584,
+      "min_end_to_end_tokens_per_sec": 39.12477246574475,
+      "max_end_to_end_tokens_per_sec": 39.719805835849236,
+      "std_end_to_end_tokens_per_sec": 0.19959700380300913,
+      "min_output_tokens": 41,
+      "max_output_tokens": 41,
+      "std_output_tokens": 0.0,
+      "min_prompt_tokens": 666,
+      "max_prompt_tokens": 666,
+      "std_prompt_tokens": 0.0,
+      "peak_metal_memory_mb": 2719.698101043701,
+      "active_metal_memory_mb": 1681.5234451293945,
+      "runs": [
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.4641662079375237,
+          "latency_seconds": 1.0371949579566717,
+          "prefill_tokens_per_sec": 1437.422352008023,
+          "decode_tokens_per_sec": 72.34368003691088,
+          "end_to_end_tokens_per_sec": 39.52969466875557,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.4586678330088034,
+          "latency_seconds": 1.0322306249290705,
+          "prefill_tokens_per_sec": 1454.5453241143557,
+          "decode_tokens_per_sec": 72.32069468873608,
+          "end_to_end_tokens_per_sec": 39.719805835849236,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.4703474580310285,
+          "latency_seconds": 1.042748042033054,
+          "prefill_tokens_per_sec": 1419.603623302572,
+          "decode_tokens_per_sec": 72.42115023626742,
+          "end_to_end_tokens_per_sec": 39.319181956997,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.46786204201634973,
+          "latency_seconds": 1.0399986250558868,
+          "prefill_tokens_per_sec": 1426.0615969115756,
+          "decode_tokens_per_sec": 72.44527703096048,
+          "end_to_end_tokens_per_sec": 39.42312904288385,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.4537627500249073,
+          "latency_seconds": 1.0479294169927016,
+          "prefill_tokens_per_sec": 1470.0493986427057,
+          "decode_tokens_per_sec": 69.79264413887702,
+          "end_to_end_tokens_per_sec": 39.12477246574475,
+          "finish_reason": "stop"
+        }
+      ]
+    },
+    "fused_stats": {
+      "avg_ttft_seconds": 0.4061606832081452,
+      "avg_latency_seconds": 0.7010452579706907,
+      "avg_prefill_tokens_per_sec": 1642.6693425650822,
+      "avg_decode_tokens_per_sec": 141.86347806267437,
+      "avg_end_to_end_tokens_per_sec": 58.489606670510625,
+      "avg_output_tokens": 41,
+      "avg_prompt_tokens": 666,
+      "min_ttft_seconds": 0.4028803330147639,
+      "max_ttft_seconds": 0.41317270905710757,
+      "std_ttft_seconds": 0.003919873733824998,
+      "min_latency_seconds": 0.6936423749430105,
+      "max_latency_seconds": 0.7119508750038221,
+      "std_latency_seconds": 0.0068151072588017595,
+      "min_prefill_tokens_per_sec": 1613.9360716440528,
+      "max_prefill_tokens_per_sec": 1655.7311794338677,
+      "std_prefill_tokens_per_sec": 16.06191955962187,
+      "min_decode_tokens_per_sec": 139.93966079317582,
+      "max_decode_tokens_per_sec": 144.20248873821026,
+      "std_decode_tokens_per_sec": 1.8525757208621059,
+      "min_end_to_end_tokens_per_sec": 57.58824300873272,
+      "max_end_to_end_tokens_per_sec": 59.10826887323392,
+      "std_end_to_end_tokens_per_sec": 0.566611748414177,
+      "min_output_tokens": 41,
+      "max_output_tokens": 41,
+      "std_output_tokens": 0.0,
+      "min_prompt_tokens": 666,
+      "max_prompt_tokens": 666,
+      "std_prompt_tokens": 0.0,
+      "peak_metal_memory_mb": 2246.0729942321777,
+      "active_metal_memory_mb": 1655.7734451293945,
+      "runs": [
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.41317270905710757,
+          "latency_seconds": 0.7119508750038221,
+          "prefill_tokens_per_sec": 1613.9360716440528,
+          "decode_tokens_per_sec": 139.93966079317582,
+          "end_to_end_tokens_per_sec": 57.58824300873272,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.4030920829391107,
+          "latency_seconds": 0.6936423749430105,
+          "prefill_tokens_per_sec": 1655.6862476352333,
+          "decode_tokens_per_sec": 143.96804646512084,
+          "end_to_end_tokens_per_sec": 59.10826887323392,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.40773462504148483,
+          "latency_seconds": 0.7042090409668162,
+          "prefill_tokens_per_sec": 1636.226446831684,
+          "decode_tokens_per_sec": 141.04196471803522,
+          "end_to_end_tokens_per_sec": 58.221348512809,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.403923665988259,
+          "latency_seconds": 0.6940882909111679,
+          "prefill_tokens_per_sec": 1651.7667672805726,
+          "decode_tokens_per_sec": 144.20248873821026,
+          "end_to_end_tokens_per_sec": 59.070294855683336,
+          "finish_reason": "stop"
+        },
+        {
+          "raw_output": "{\"tool\":\"deploy_service\",\"parameters\":{\"service\":\"auth-api\",\"version\":\"v3.12.0\",\"environment\":\"production\",\"replicas\":5,\"notify_channels\":[\"#deployments\"]}}",
+          "output_tokens": 41,
+          "prompt_tokens": 666,
+          "ttft_seconds": 0.4028803330147639,
+          "latency_seconds": 0.7013357080286369,
+          "prefill_tokens_per_sec": 1655.7311794338677,
+          "decode_tokens_per_sec": 140.1652295988297,
+          "end_to_end_tokens_per_sec": 58.459878102094144,
+          "finish_reason": "stop"
+        }
+      ]
+    },
+    "run": "benchmark-20261015T143424637509Z-1c622b77"
+  }
+}

@@ -371,6 +371,25 @@ Three things fall out of it:
 
 So the earlier sentence needs a qualifier: grammar buys the contract *when the model does not already have it*; training buys the decisions at every size, and so — at larger sizes — does few-shot prompting. Full per-size numbers are regenerable from [`docs/reference-run/capacity.json`](docs/reference-run/capacity.json) (`scripts/export_capacity.py`).
 
+### Which one should you deploy?
+
+Accuracy alone says the prompted 32B (97% on the holdout) is within noise of the trained 3B adapter (100%). Serving cost is where they differ. Every candidate below was scored on the same 195 requests (holdout plus the three challenge sets), single stream, greedy decoding, one Apple-silicon Mac; latency is per request, prefill included. Regenerate with `uv run python scripts/export_deployment.py` (output in [`docs/reference-run/deployment.json`](docs/reference-run/deployment.json)).
+
+| Candidate | `test` | `abstain` | `defaults` | `entities` | Latency median / p95 | TTFT | Decode | Prompt tokens | Weights |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 3B + LoRA (dynamic) | **100** | 95 | **100** | 75 | 0.98 / 1.08 s | 0.47 s | 73 tok/s | 664 | 1.7 GB |
+| **3B + LoRA (fused)** | **100** | **100** | **100** | 75 | **0.67 / 0.72 s** | 0.40 s | 144 tok/s | 664 | 1.7 GB |
+| 14B few-shot | 92 | 100 | 100 | **100** | 3.73 / 3.96 s | 2.78 s | 39 tok/s | 983 | 8.3 GB |
+| 32B few-shot | 97 | **100** | 97.5 | **100** | 9.13 / 9.55 s | 7.07 s | 18 tok/s | 983 | 18.4 GB |
+
+* **Fusing is free here.** Merging the adapter takes median latency from 0.98 s to 0.67 s and decode from 73 to 144 tok/s (the controlled benchmark agrees: 1.04 s vs 0.70 s, peak memory 2.7 GB vs 2.2 GB). Quality did not move: 100 / 100 / 100 / 75 against 100 / 95 / 100 / 75, the abstain difference being two records on 40.
+* **The fused 3B is about 5.6x faster than 14B few-shot and 13.6x faster than 32B** per request, in a fifth to a tenth of the weights memory, and it also sends a third fewer prompt tokens per request (664 vs 983), because it needs no demonstrations.
+* **What the larger models buy** is robustness on unseen entities (100 vs 75 for this adapter) without any training. That 75 is the SFT adapter's known failure, and [the DPO section](#preference-tuning-dpo-against-more-sft-data) shows continuing SFT on mined pairs lifts it to about 99%, at the same size and speed. The fused quality of that continued adapter was not re-measured.
+
+**Recommendation.** For this task and an Apple-silicon host, deploy the fused 3B adapter, trained with the mined-pair continuation. Use few-shot 32B only if you cannot train at all, or as an offline checker or labeller for the 3B model's outputs. Prompted 14B is dominated: it is slower and less accurate on the holdout than the fused 3B, and only wins on unseen entities, which the continued adapter closes.
+
+Caveats: one machine and a single request at a time (batched serving changes the ratios, usually in favour of larger models' throughput per dollar, not per-request latency); weights size is the 4-bit safetensors on disk, not peak runtime memory for the 14B and 32B (peak was measured only for the 3B); the challenge sets have 40 records each; the task is synthetic.
+
 ### Real data: the BFCL pilot
 
 The synthetic task could be protecting the conclusion, so the same comparison is re-run on real function schemas from [BFCL v3 `simple`](https://huggingface.co/datasets/gorilla-llm/Berkeley-Function-Calling-Leaderboard) (Apache-2.0): 395 records, one real function per record, evaluated with the same `{"tool","parameters"}` envelope and a per-record system prompt, but scored BFCL-style (name + arguments in the ground-truth acceptable sets, required present) rather than exact match. Run it with `python main.py bfcl`; details and provenance are in [`docs/real-data.md`](docs/real-data.md).
@@ -539,6 +558,7 @@ Defaults resolve **only** through `latest.json` pointers. If no training run has
 | `src/forgetting.py` | general-capability loss comparison (base vs LoRA) with an exact sign test |
 | `src/dpo.py` | preference-pair mining, DPO loss and trainer (reference = step-0 policy), SFT control data |
 | `src/grpo.py` | GRPO from a verifiable reward and its matched SFT arm, on `mlx_lm` batched generation |
+| `scripts/export_deployment.py` | deployment trade-off table: accuracy, latency, prompt cost and weights size per candidate |
 | `src/compare.py` | side-by-side adapter comparison: exact match, paired McNemar, targeted field, forgetting |
 | `src/ablation.py`, `src/benchmark.py`, `src/fuse.py` | sweeps, speed, fusion |
 | `src/runs.py` | run directories, manifests, latest pointers |
