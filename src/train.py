@@ -217,7 +217,9 @@ def run_training(config_path=None, iters_override=None, *, preset=None, output_d
                           "Consider fewer iterations or the checkpoint near the best iteration.[/yellow]")
 
         finish_run(artifacts_dir, run_dir, manifest)
-        write_json(configured_adapter / "latest.json", {
+        # An explicit --output-dir is a side experiment: its pointer must not replace the preset's default adapter.
+        pointer_dir = Path(output_dir) / "adapters" if output_dir is not None else configured_adapter
+        write_json(pointer_dir / "latest.json", {
             "path": args.adapter_path, "model": requested_model, "run_id": manifest["run_id"],
         })
         # `ablate` calls run_training repeatedly in one process; release this model before the next.

@@ -336,6 +336,15 @@ class TrainingTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'changed after training'):
                 resolve_adapter_source(str(model_path), second.adapter_path)
 
+    def test_explicit_output_dir_does_not_move_the_configured_default_pointer(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as side:
+            root = Path(tmp)
+            _, config = self._config(root)
+            with patch.object(train.lora, 'load', return_value=(TinyModel(), TinyTokenizer())):
+                callback = train.run_training(config_path=str(config), output_dir=side)
+            self.assertFalse((root / 'adapters' / 'latest.json').exists())
+            self.assertEqual(latest_path(Path(side) / 'adapters'), callback.adapter_path)
+
     def test_failed_training_is_recorded_and_publishes_no_pointer(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
