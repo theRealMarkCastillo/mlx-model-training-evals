@@ -379,8 +379,8 @@ Accuracy alone says the prompted 32B (97% on the holdout) is within noise of the
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | 3B SFT adapter, dynamic | **100** | 95 | **100** | 75 | 0.98 / 1.08 s | 0.47 s | 73 tok/s | 664 | 1.7 GB |
 | 3B SFT adapter, fused | **100** | **100** | **100** | 75 | 0.67 / 0.72 s | 0.40 s | 144 tok/s | 664 | 1.7 GB |
-| 3B continued adapter, dynamic | **100** | 95 | **100** | 97.5 | 0.98 / 1.08 s | | 73 tok/s | 664 | 1.7 GB |
-| **3B continued adapter, fused** | **100** | **100** | **100** | **100** | **0.68 / 0.73 s** | 0.40 s | 144 tok/s | 664 | 1.7 GB |
+| 3B continued adapter, dynamic | **100** | 95 | **100** | 97.5 | 0.98 / 1.08 s | 0.46 s | 72 tok/s | 664 | 1.7 GB |
+| **3B continued adapter, fused** | **100** | **100** | **100** | **100** | **0.68 / 0.73 s** | 0.41 s | 143 tok/s | 664 | 1.7 GB |
 | 14B few-shot | 92 | 100 | 100 | **100** | 3.73 / 3.96 s | 2.78 s | 39 tok/s | 983 | 8.3 GB |
 | 32B few-shot | 97 | **100** | 97.5 | **100** | 9.13 / 9.55 s | 7.07 s | 18 tok/s | 983 | 18.4 GB |
 
